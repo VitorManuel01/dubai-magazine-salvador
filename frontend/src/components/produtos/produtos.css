@@ -1,0 +1,70 @@
+.produto-card {
+  height: 100%;
+  border: 1px solid rgba(56, 112, 200, 0.12);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(24, 49, 83, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.produto-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px rgba(24, 49, 83, 0.12);
+}
+
+.produto-img {
+  height: 178px;
+  object-fit: contain;
+  padding: 16px;
+  background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
+}
+
+.produto-card .card-body {
+  padding: 14px 16px 16px;
+  text-align: center;
+}
+
+.produto-card .card-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  min-height: 42px;
+  color: #1e3356;
+  margin-bottom: 10px;
+}
+
+.produto-card .list-unstyled {
+  margin: 0 0 12px;
+  display: grid;
+  gap: 4px;
+  color: #4f5f7a;
+  font-size: 0.82rem;
+}
+
+.produto-card .list-unstyled li strong {
+  color: #1e3356;
+}
+
+.produto-card .btn {
+  min-width: 92px;
+  border-radius: 999px;
+  padding: 0.48rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 4px 5px 0;
+}
+
+.produto-card .btn-primary {
+  background: #3870c8;
+  border-color: #3870c8;
+}
+
+.produto-card .btn-secondary {
+  background: #64748b;
+  border-color: #64748b;
+}
+
+.produto-card .btn-success {
+  background: #1f9d55;
+  border-color: #1f9d55;
+}

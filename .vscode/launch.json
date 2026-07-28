@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run JUnit Tests Programmatically",
+            "request": "launch",
+            "mainClass": "com.ecommerceproject.dubaimagazinesalvador.DubaiMagazineSalvadorApplicationTests",  // Use your fully-qualified class name
+            "projectName": "dubaiMagazineSalvador",    // Your project name
+            "cwd": "${workspaceFolder}"         // Working directory
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-DubaiMagazineSalvadorApplication<dubaiMagazineSalvador>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.ecommerceproject.dubaimagazinesalvador.DubaiMagazineSalvadorApplication",
+            "projectName": "dubaiMagazineSalvador",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
