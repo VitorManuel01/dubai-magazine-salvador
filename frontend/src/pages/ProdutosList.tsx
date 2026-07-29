@@ -1,30 +1,59 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Produtos } from '../components/produtos/produtos';
 import { useDadosProdutos } from '../hooks/useDadosProdutos';
-import { CadastrarProdutos } from "../components/cadastros/inserirProdutos";
 import { useAuth } from '../context/AuthProvider';
-import "../styles/ProdutoList.css";
+import { useCategoriasPrincipais } from '../hooks/useCategoriasPrincipais';
+import { useSubcategorias } from '../hooks/useSubcategorias';
+import '../styles/ProdutoList.css';
 
 function ProdutoList() {
-  const { data = [], isLoading, error } = useDadosProdutos();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const { funcao } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoriaCodigo = searchParams.get('categoria')?.trim() || undefined;
+  const subcategoriaCodigo = searchParams.get('subcategoria')?.trim() || undefined;
+  const busca = searchParams.get('busca')?.trim() || undefined;
+  const categoriaFiltro = subcategoriaCodigo ?? categoriaCodigo;
+  const [pagina, setPagina] = useState(0);
   const [priceDraft, setPriceDraft] = useState({ min: '', max: '' });
-  const [appliedPriceRange, setAppliedPriceRange] = useState<{ min: number | null; max: number | null }>({
-    min: null,
-    max: null,
-  });
+  const [appliedPriceRange, setAppliedPriceRange] = useState<{
+    min: number | null;
+    max: number | null;
+  }>({ min: null, max: null });
   const [sortBy, setSortBy] = useState('featured');
 
-  const { isAuthenticated, logout } = useAuth();
+  const {
+    data = [],
+    paginacao,
+    isLoading,
+    error,
+  } = useDadosProdutos(categoriaFiltro, pagina, funcao || 'publico', busca);
+  const { data: categoriasPrincipais = [] } =
+    useCategoriasPrincipais(funcao || 'publico');
+  const {
+    data: subcategorias = [],
+    isLoading: carregandoSubcategorias,
+  } = useSubcategorias(categoriaCodigo, funcao || 'publico');
 
-  const handleOpenModal = () => {
-    setIsModalOpen((prev) => !prev);
-  };
+  const categoriaPrincipal = categoriasPrincipais.find(
+    (categoria) => categoria.codigo === categoriaCodigo
+  );
+  const subcategoriaSelecionada = subcategorias.find(
+    (categoria) => categoria.codigo === subcategoriaCodigo
+  );
+  const tituloCategoria = subcategoriaSelecionada?.nome
+    ?? categoriaPrincipal?.nome
+    ?? (categoriaCodigo ? `Categoria ${categoriaCodigo}` : 'Todos os produtos');
+  const tituloPagina = busca
+    ? `Resultados para “${busca}”`
+    : tituloCategoria;
 
-  const categories = useMemo(() => {
-    return Array.from(new Set(data.map((produto) => produto.categoria).filter(Boolean)));
-  }, [data]);
+  useEffect(() => {
+    setPagina(0);
+    setPriceDraft({ min: '', max: '' });
+    setAppliedPriceRange({ min: null, max: null });
+    setSortBy('featured');
+  }, [busca, categoriaCodigo, subcategoriaCodigo]);
 
   const getPrice = (price: unknown) => {
     const value = Number(String(price));
@@ -32,20 +61,16 @@ function ProdutoList() {
   };
 
   const filteredProducts = useMemo(() => {
-    const normalizedCategories = selectedCategories.length > 0 ? selectedCategories : [];
-
     const result = data.filter((produto) => {
-      const price = getPrice(produto.preco);
-      const matchesCategory = normalizedCategories.length === 0 || normalizedCategories.includes(produto.categoria);
+      const price = getPrice(produto.precoVenda);
       const matchesMin = appliedPriceRange.min === null || price >= appliedPriceRange.min;
       const matchesMax = appliedPriceRange.max === null || price <= appliedPriceRange.max;
-
-      return matchesCategory && matchesMin && matchesMax;
+      return matchesMin && matchesMax;
     });
 
     return [...result].sort((left, right) => {
-      const leftPrice = getPrice(left.preco);
-      const rightPrice = getPrice(right.preco);
+      const leftPrice = getPrice(left.precoVenda);
+      const rightPrice = getPrice(right.precoVenda);
 
       switch (sortBy) {
         case 'price-asc':
@@ -53,19 +78,23 @@ function ProdutoList() {
         case 'price-desc':
           return rightPrice - leftPrice;
         case 'stock-desc':
-          return right.qtdEstoque - left.qtdEstoque;
+          return right.quantidade - left.quantidade;
         case 'name-asc':
-          return left.nome.localeCompare(right.nome, 'pt-BR');
+          return left.nomeExibidoSite.localeCompare(right.nomeExibidoSite, 'pt-BR');
         default:
           return 0;
       }
     });
-  }, [appliedPriceRange.max, appliedPriceRange.min, data, selectedCategories, sortBy]);
+  }, [appliedPriceRange.max, appliedPriceRange.min, data, sortBy]);
 
-  const handleToggleCategory = (categoria: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoria) ? prev.filter((item) => item !== categoria) : [...prev, categoria]
-    );
+  const selecionarSubcategoria = (codigo?: string) => {
+    const novosParametros = new URLSearchParams(searchParams);
+    if (codigo) {
+      novosParametros.set('subcategoria', codigo);
+    } else {
+      novosParametros.delete('subcategoria');
+    }
+    setSearchParams(novosParametros);
   };
 
   const handleApplyPrice = () => {
@@ -79,11 +108,11 @@ function ProdutoList() {
   };
 
   const handleClearFilters = () => {
-    setSelectedCategories([]);
+    selecionarSubcategoria();
     setPriceDraft({ min: '', max: '' });
     setAppliedPriceRange({ min: null, max: null });
     setSortBy('featured');
-  }
+  };
 
   if (isLoading) {
     return <div className="catalog-page">Carregando catálogo...</div>;
@@ -97,19 +126,30 @@ function ProdutoList() {
     <div className="catalog-page">
       <section className="catalog-header">
         <div>
-          <p className="catalog-breadcrumb">Início / Esportes e lazer / Boias infláveis</p>
-          <h1>Boias Infláveis</h1>
+          <p className="catalog-breadcrumb">
+            <Link to="/">Início</Link> / {tituloPagina}
+          </p>
+          <h1>{tituloPagina}</h1>
           <p className="catalog-description">
-            Uma vitrine clean, com filtros rápidos, ordenação e cartões mais próximos da referência enviada.
+            {busca
+              ? `Pesquisa em ${tituloCategoria.toLocaleLowerCase('pt-BR')}.`
+              : subcategoriaSelecionada
+              ? `Produtos de ${subcategoriaSelecionada.nome} e de seus grupos internos.`
+              : categoriaPrincipal
+                ? `Produtos de ${categoriaPrincipal.nome} e de todas as suas subcategorias.`
+                : 'Explore os produtos disponíveis no catálogo da Dubai Magazine.'}
           </p>
         </div>
 
         <div className="catalog-toolbar">
-          <span className="catalog-results-count">Exibindo {filteredProducts.length} produtos</span>
+          <span className="catalog-results-count">
+            Exibindo {filteredProducts.length} de{' '}
+            {(paginacao?.totalElements ?? 0).toLocaleString('pt-BR')} produtos
+          </span>
           <label className="catalog-sort">
-            <span>Ordenar por</span>
+            <span>Ordenar esta página por</span>
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-              <option value="featured">Mais vendidos</option>
+              <option value="featured">Ordem do catálogo</option>
               <option value="price-asc">Menor preço</option>
               <option value="price-desc">Maior preço</option>
               <option value="name-asc">Nome A-Z</option>
@@ -122,37 +162,54 @@ function ProdutoList() {
       <section className="catalog-layout">
         <aside className="filter-card">
           <div className="filter-card__header">
-            <span className="filter-card__eyebrow">Marca</span>
+            <span className="filter-card__eyebrow">Catálogo</span>
             <h2>Filtros</h2>
           </div>
 
           <div className="filter-group">
-            <span className="filter-group__title">Categorias</span>
-            <label className="filter-checkbox filter-checkbox--all">
-              <input
-                type="checkbox"
-                checked={selectedCategories.length === 0}
-                onChange={() => setSelectedCategories([])}
-              />
-              <span>Todas as categorias</span>
-            </label>
+            <span className="filter-group__title">Subcategorias</span>
 
-            <div className="filter-list">
-              {categories.map((categoria) => (
-                <label className="filter-checkbox" key={categoria}>
+            {!categoriaCodigo && (
+              <p className="filter-empty">
+                Selecione uma categoria no menu superior para ver suas subcategorias.
+              </p>
+            )}
+
+            {categoriaCodigo && (
+              <>
+                <label className="filter-checkbox filter-checkbox--all">
                   <input
-                    type="checkbox"
-                    checked={selectedCategories.includes(categoria)}
-                    onChange={() => handleToggleCategory(categoria)}
+                    type="radio"
+                    name="subcategoria"
+                    checked={!subcategoriaCodigo}
+                    onChange={() => selecionarSubcategoria()}
                   />
-                  <span>{categoria}</span>
+                  <span>Todas de {categoriaPrincipal?.nome ?? categoriaCodigo}</span>
                 </label>
-              ))}
-            </div>
+
+                <div className="filter-list">
+                  {subcategorias.map((categoria) => (
+                    <label className="filter-checkbox" key={categoria.codigo}>
+                      <input
+                        type="radio"
+                        name="subcategoria"
+                        checked={subcategoriaCodigo === categoria.codigo}
+                        onChange={() => selecionarSubcategoria(categoria.codigo)}
+                      />
+                      <span>{categoria.nome}</span>
+                    </label>
+                  ))}
+                  {carregandoSubcategorias && <span>Carregando...</span>}
+                  {!carregandoSubcategorias && subcategorias.length === 0 && (
+                    <p className="filter-empty">Nenhuma subcategoria cadastrada.</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="filter-group">
-            <span className="filter-group__title">Preço</span>
+            <span className="filter-group__title">Preço nesta página</span>
             <div className="price-grid">
               <input
                 type="number"
@@ -182,49 +239,71 @@ function ProdutoList() {
         <section className="catalog-results">
           <div className="catalog-results__bar">
             <span>
-              {selectedCategories.length > 0 || appliedPriceRange.min !== null || appliedPriceRange.max !== null
-                ? 'Resultados filtrados'
-                : 'Produtos em destaque'}
+              {funcao === 'ROLE_ADMIN'
+                ? 'Visão administrativa: produtos visíveis e ocultos'
+                : 'Produtos disponíveis no site'}
             </span>
-            <span className="catalog-results__hint">Interface ajustada para ficar mais próxima da imagem.</span>
+            <span className="catalog-results__hint">
+              Página {(paginacao?.number ?? 0) + 1} de {Math.max(paginacao?.totalPages ?? 1, 1)}
+            </span>
           </div>
 
           {filteredProducts.length === 0 ? (
-            <div className="catalog-empty">Nenhum produto encontrado com os filtros atuais.</div>
+            <div className="catalog-empty">
+              {busca
+                ? `Nenhum produto encontrado para “${busca}”.`
+                : 'Nenhum produto encontrado com os filtros atuais.'}
+            </div>
           ) : (
             <div className="catalog-grid">
               {filteredProducts.map((dadosProdutos) => (
-                <div className="catalog-grid__item" key={dadosProdutos.codProd}>
-                  <Produtos
-                    codProd={dadosProdutos.codProd}
-                    nome={dadosProdutos.nome}
-                    preco={dadosProdutos.preco}
-                    qtdEstoque={dadosProdutos.qtdEstoque}
-                    categoria={dadosProdutos.categoria}
-                    imagemUrl={dadosProdutos.imagemUrl}
-                  />
+                <div className="catalog-grid__item" key={dadosProdutos.codigoSantri}>
+                  <Produtos {...dadosProdutos} />
                 </div>
               ))}
             </div>
           )}
+
+          {(paginacao?.totalPages ?? 0) > 1 && (
+            <nav className="catalog-pagination" aria-label="Paginação de produtos">
+              <button
+                type="button"
+                onClick={() => setPagina((atual) => Math.max(0, atual - 1))}
+                disabled={paginacao?.first}
+              >
+                <i className="bi bi-chevron-left" />
+                Anterior
+              </button>
+              <span>
+                Página {(paginacao?.number ?? 0) + 1} de {paginacao?.totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPagina((atual) => atual + 1)}
+                disabled={paginacao?.last}
+              >
+                Próxima
+                <i className="bi bi-chevron-right" />
+              </button>
+            </nav>
+          )}
         </section>
       </section>
 
-      {isAuthenticated && (
+      {funcao === 'ROLE_ADMIN' && (
         <div className="admin-actions">
-          <button className="btn btn-primary me-2" onClick={handleOpenModal} type="button">
-            Novo Cadastro
-          </button>
-          <button className="btn btn-secondary" onClick={logout} type="button">
-            Logout
-          </button>
+          <Link className="btn btn-outline-primary" to="/admin/vitrines-home">
+            <i className="bi bi-layout-text-window-reverse me-2" />
+            Gerenciar vitrines
+          </Link>
+          <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">
+            <i className="bi bi-file-earmark-arrow-up me-2" />
+            Importar inventário
+          </Link>
         </div>
       )}
-
-      {isModalOpen && <CadastrarProdutos closeModal={handleOpenModal} />}
     </div>
   );
 }
 
 export default ProdutoList;
-

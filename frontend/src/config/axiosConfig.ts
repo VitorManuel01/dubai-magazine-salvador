@@ -1,7 +1,9 @@
 // axiosConfig.ts
 import axios from 'axios';
 
-axios.defaults.baseURL = 'http://localhost:8081'; // Defina a URL base
+export const API_BASE_URL = 'http://localhost:8081';
+
+axios.defaults.baseURL = API_BASE_URL;
 axios.defaults.withCredentials = true;
 
 axios.interceptors.request.use(config => {

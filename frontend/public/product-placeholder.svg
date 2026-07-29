@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title description">
+  <title id="title">Produto sem imagem</title>
+  <desc id="description">Imagem temporária para produtos que ainda não possuem foto cadastrada.</desc>
+  <rect width="640" height="480" fill="#eef4ff"/>
+  <g fill="none" stroke="#3870c8" stroke-linecap="round" stroke-linejoin="round" stroke-width="16">
+    <rect x="190" y="120" width="260" height="220" rx="24"/>
+    <circle cx="270" cy="205" r="30"/>
+    <path d="m210 310 80-80 55 55 38-38 47 63"/>
+  </g>
+  <text x="320" y="395" fill="#2d5aa0" font-family="Arial, sans-serif" font-size="28" text-anchor="middle">
+    Imagem em breve
+  </text>
+</svg>

@@ -1,0 +1,258 @@
+.import-page {
+  width: min(900px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.import-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.import-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #3870c8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.import-heading h1 {
+  margin: 0;
+  color: #183153;
+  font-size: 1.8rem;
+}
+
+.import-heading p {
+  max-width: 650px;
+  margin: 8px 0 0;
+  color: #66748d;
+  font-size: 0.9rem;
+}
+
+.import-card,
+.import-result {
+  border: 1px solid rgba(24, 49, 83, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(24, 49, 83, 0.06);
+}
+
+.import-card {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 20px;
+  padding: 24px;
+}
+
+.import-card__icon {
+  display: grid;
+  width: 84px;
+  height: 84px;
+  place-items: center;
+  border-radius: 12px;
+  background: #edf4ff;
+  color: #3870c8;
+  font-size: 2.25rem;
+}
+
+.import-file {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px dashed rgba(56, 112, 200, 0.5);
+  border-radius: 8px;
+  background: #f8fbff;
+  cursor: pointer;
+}
+
+.import-file__title {
+  color: #183153;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.import-file__hint {
+  margin-top: 4px;
+  color: #77849a;
+  font-size: 0.78rem;
+}
+
+.import-file input {
+  margin-top: 14px;
+  color: #48576f;
+  font-size: 0.82rem;
+}
+
+.import-notice {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f5f7fb;
+  color: #59677d;
+}
+
+.import-notice i {
+  color: #3870c8;
+}
+
+.import-notice p {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.import-progress {
+  margin: 16px 0;
+}
+
+.import-progress__labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+  color: #59677d;
+  font-size: 0.78rem;
+}
+
+.import-progress__track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7ecf4;
+}
+
+.import-progress__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3870c8;
+  transition: width 180ms ease;
+}
+
+.import-feedback {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 14px 0;
+  padding: 11px 13px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.import-feedback--error {
+  border: 1px solid #f1b9b9;
+  background: #fff4f4;
+  color: #a52a2a;
+}
+
+.import-submit {
+  min-width: 190px;
+}
+
+.import-result {
+  margin-top: 20px;
+  padding: 22px 24px;
+}
+
+.import-result__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.import-result__heading > i {
+  color: #2d9461;
+  font-size: 1.8rem;
+}
+
+.import-result__heading h2 {
+  margin: 0;
+  color: #183153;
+  font-size: 1.15rem;
+}
+
+.import-result__heading p {
+  margin: 3px 0 0;
+  color: #6b7890;
+  font-size: 0.8rem;
+}
+
+.import-result__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.import-result__grid div {
+  padding: 13px;
+  border-radius: 8px;
+  background: #f6f8fc;
+}
+
+.import-result__grid span,
+.import-result__grid strong {
+  display: block;
+}
+
+.import-result__grid span {
+  color: #6b7890;
+  font-size: 0.72rem;
+}
+
+.import-result__grid strong {
+  margin-top: 3px;
+  color: #183153;
+  font-size: 1.2rem;
+}
+
+.import-result__note {
+  margin: 15px 0 0;
+  color: #6b7890;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 700px) {
+  .import-heading {
+    flex-direction: column;
+  }
+
+  .import-card {
+    grid-template-columns: 1fr;
+  }
+
+  .import-card__icon {
+    width: 64px;
+    height: 64px;
+    font-size: 1.75rem;
+  }
+
+  .import-result__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 440px) {
+  .import-page {
+    width: min(100%, calc(100% - 20px));
+  }
+
+  .import-result__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-submit {
+    width: 100%;
+  }
+}
+.import-heading__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

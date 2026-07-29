@@ -2,6 +2,19 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 
 import java.math.BigDecimal;
 
-public record ProdutoRequestDTO(String nome, BigDecimal preco, int qtdEstoque, String categoria, String imagemUrl) {
-
+public record ProdutoRequestDTO(
+        String codigoSantri,
+        String descricao,
+        String nomeExibidoSite,
+        String ncm,
+        String unidade,
+        String marca,
+        String codigoOriginal,
+        BigDecimal quantidade,
+        BigDecimal precoVenda,
+        BigDecimal precoVendaIva,
+        String categoriaCodigo,
+        String imagemUrl,
+        boolean exibirNoSite
+) {
 }

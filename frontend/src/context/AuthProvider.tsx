@@ -3,32 +3,57 @@ import { AuthContextType } from "../interface/AuthContextType"
 import { JwtDadosUsuario } from '../interface/JwtDadosUsuario';
 import { jwtDecode } from 'jwt-decode';
 
-// Cria o contexto
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+interface AuthState {
+    isAuthenticated: boolean;
+    funcao: string;
+}
+
+const getStoredAuth = (): AuthState => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        return { isAuthenticated: false, funcao: '' };
+    }
+
+    try {
+        const decoded = jwtDecode<JwtDadosUsuario>(token);
+        const expirado = decoded.exp !== undefined && decoded.exp * 1000 <= Date.now();
+        if (expirado) {
+            localStorage.removeItem('token');
+            return { isAuthenticated: false, funcao: '' };
+        }
+        return { isAuthenticated: true, funcao: decoded.funcao };
+    } catch {
+        localStorage.removeItem('token');
+        return { isAuthenticated: false, funcao: '' };
+    }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [funcao, setFuncao] = useState("")
+    const [auth, setAuth] = useState<AuthState>(getStoredAuth);
+
     const login = (token: string) => {
         localStorage.setItem('token', token);
-        const tokenDecodificado: JwtDadosUsuario = jwtDecode(token)
-        setIsAuthenticated(true);
-        console.log(tokenDecodificado.funcao)
-        setFuncao(tokenDecodificado.funcao)
+        const tokenDecodificado = jwtDecode<JwtDadosUsuario>(token);
+        setAuth({ isAuthenticated: true, funcao: tokenDecodificado.funcao });
     };
 
     const logout = () => {
         localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        setFuncao("")
-        //console.log("Logout realizado com sucesso")
+        setAuth({ isAuthenticated: false, funcao: '' });
     };
 
     return (
-        
-        <AuthContext.Provider value={{ isAuthenticated,funcao, login, logout }}>
+        <AuthContext.Provider
+            value={{
+                isAuthenticated: auth.isAuthenticated,
+                funcao: auth.funcao,
+                login,
+                logout,
+            }}
+        >
             {children}
-            
         </AuthContext.Provider>
     );
 };

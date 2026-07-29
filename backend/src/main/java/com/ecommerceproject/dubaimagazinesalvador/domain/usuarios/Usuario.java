@@ -1,9 +1,8 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -13,6 +12,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -44,7 +45,9 @@ public abstract class Usuario implements UserDetails {
     private String login;
     private String email;
     private String senha;
-    private Role funcao; 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 50)
+    private Role funcao;
     
     public String getLogin() {
         return login;
@@ -80,7 +83,10 @@ public abstract class Usuario implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Arrays.stream(Role.values()).map(funcao -> new SimpleGrantedAuthority(funcao.name())).collect(Collectors.toList());
+        if (funcao == null) {
+            return List.of();
+        }
+        return List.of(new SimpleGrantedAuthority(funcao.name()));
     }
 
     @Override

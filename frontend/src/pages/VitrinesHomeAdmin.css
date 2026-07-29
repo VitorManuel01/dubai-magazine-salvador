@@ -1,0 +1,168 @@
+.vitrine-admin-page {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+.vitrine-admin-heading,
+.vitrine-admin-list__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.vitrine-admin-heading span {
+  color: #3870c8;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.vitrine-admin-heading h1 {
+  margin: 5px 0 8px;
+  color: #183153;
+}
+
+.vitrine-admin-heading p {
+  margin: 0;
+  max-width: 680px;
+  color: #66748d;
+}
+
+.vitrine-admin-heading__actions,
+.vitrine-admin-editor__actions,
+.vitrine-admin-card__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.vitrine-admin-editor,
+.vitrine-admin-list {
+  padding: 22px;
+  border: 1px solid rgba(24, 49, 83, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.vitrine-admin-editor h2,
+.vitrine-admin-list h2 {
+  margin: 0 0 18px;
+  color: #183153;
+  font-size: 1.2rem;
+}
+
+.vitrine-admin-editor form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.vitrine-admin-editor label {
+  display: grid;
+  gap: 7px;
+  color: #34445f;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.vitrine-admin-editor input,
+.vitrine-admin-editor select,
+.vitrine-admin-editor textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(24, 49, 83, 0.18);
+  border-radius: 8px;
+  color: #183153;
+  background: #fff;
+}
+
+.vitrine-admin-editor__wide,
+.vitrine-admin-editor__actions,
+.vitrine-admin-message {
+  grid-column: 1 / -1;
+}
+
+.vitrine-admin-active {
+  display: flex !important;
+  align-items: center;
+  align-self: end;
+  min-height: 42px;
+}
+
+.vitrine-admin-active input {
+  width: 18px;
+  height: 18px;
+}
+
+.vitrine-admin-message {
+  margin: 14px 0 0;
+  color: #3870c8;
+  font-weight: 700;
+}
+
+.vitrine-admin-list__heading {
+  align-items: center;
+}
+
+.vitrine-admin-list__heading span {
+  color: #66748d;
+  font-size: 0.8rem;
+}
+
+.vitrine-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.vitrine-admin-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(24, 49, 83, 0.12);
+  border-radius: 12px;
+}
+
+.vitrine-admin-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #3870c8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.vitrine-admin-card h3,
+.vitrine-admin-card p {
+  margin: 0;
+}
+
+.vitrine-admin-card h3 {
+  color: #183153;
+}
+
+.vitrine-admin-card p,
+.vitrine-admin-card small,
+.vitrine-admin-empty {
+  color: #66748d;
+}
+
+@media (max-width: 720px) {
+  .vitrine-admin-heading,
+  .vitrine-admin-list__heading,
+  .vitrine-admin-heading__actions {
+    flex-direction: column;
+  }
+
+  .vitrine-admin-editor form {
+    grid-template-columns: 1fr;
+  }
+
+  .vitrine-admin-editor__wide,
+  .vitrine-admin-editor__actions {
+    grid-column: auto;
+  }
+}

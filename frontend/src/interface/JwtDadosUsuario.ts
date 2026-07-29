@@ -1,3 +1,4 @@
 export interface JwtDadosUsuario{
-    funcao: string
+    funcao: string;
+    exp?: number;
 }

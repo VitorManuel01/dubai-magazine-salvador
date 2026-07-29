@@ -2,6 +2,7 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
 import java.time.LocalDate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ public class Administrador extends Usuario implements IsAdmin{
     private boolean admin;
     private String nome;
     private String CPF;
+    @Column(columnDefinition = "CHAR(1)")
     private String sexo;
     private LocalDate dataNascimento;
     private String CEP;

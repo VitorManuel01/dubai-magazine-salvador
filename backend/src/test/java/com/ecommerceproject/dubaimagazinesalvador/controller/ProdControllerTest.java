@@ -8,18 +8,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
-import org.mockito.InjectMocks;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,24 +28,26 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ecommerceproject.dubaimagazinesalvador.config.MockMvcConfig;
 import com.ecommerceproject.dubaimagazinesalvador.config.TestSecurityConfig;
+import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoRequestDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.infra.security.TokenService;
+import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
-
 
 @Import(MockMvcConfig.class)
 @WebMvcTest(ProdController.class)
@@ -53,6 +56,8 @@ import jakarta.persistence.EntityManager;
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class ProdControllerTest {
+
+    private static final String CATEGORIA_CODIGO = "001.003.0006.0002";
 
     @Autowired
     private MockMvc mockMvc;
@@ -67,104 +72,254 @@ class ProdControllerTest {
     private UsuarioRepository usuarioRepository;
 
     @MockBean
-    private ProdutoRepository repository;
+    private ProdutoRepository produtoRepository;
 
-    @InjectMocks
-    private ProdController prodController;
+    @MockBean
+    private CategoriaRepository categoriaRepository;
+
+    @MockBean
+    private ApresentacaoProdutoService apresentacaoProdutoService;
 
     private ObjectMapper objectMapper;
+    private Categoria categoria;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.initMocks(this);
         objectMapper = new ObjectMapper();
+        categoria = new Categoria(
+                CATEGORIA_CODIGO,
+                "GIZ DE CERA",
+                4,
+                "PAPELARIA > ESCOLAR > COLORIR > GIZ DE CERA",
+                null,
+                true
+        );
+        when(categoriaRepository.findById(CATEGORIA_CODIGO)).thenReturn(Optional.of(categoria));
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    @DisplayName("Deve salvar um produto")
-    void saveProduto() throws Exception{
-        ProdutoRequestDTO requestDTO = new ProdutoRequestDTO("Produto Exemplo", BigDecimal.valueOf(99.99), 100, "Categoria Exemplo", "http://exemplo.com/imagem.jpg");
+    @DisplayName("Deve salvar um produto usando o código do Santri")
+    void saveProduto() throws Exception {
+        ProdutoRequestDTO requestDTO = criarRequest("2.672", "Produto Exemplo");
+        Produto produto = new Produto(requestDTO, categoria);
 
-        Produto produto = new Produto(requestDTO);
-
-        // Simula o comportamento do repositório
-        when(repository.save(any(Produto.class))).thenReturn(produto);
-
-        // faz o post
+        when(produtoRepository.save(any(Produto.class))).thenReturn(produto);
 
         mockMvc.perform(post("/produto")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
-                .andDo(print())
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.codigoSantri").value("2.672"))
+                .andExpect(jsonPath("$.nomeExibidoSite").value("Produto Exemplo"))
+                .andExpect(jsonPath("$.categoriaCaminho")
+                        .value("PAPELARIA > ESCOLAR > COLORIR > GIZ DE CERA"));
 
-        // Verifica se o método save foi chamado uma vez
-        verify(repository, times(1)).save(any(Produto.class));
+        verify(produtoRepository, times(1)).save(any(Produto.class));
     }
 
-@Test
-@WithMockUser(roles = "ADMIN")
-@DisplayName("Deve adicionar todos os produtos do banco à uma lista")
-void getAll() throws Exception {
-    List<Produto> produtos = List.of(
-            new Produto("PROD-1727927606880","Produto 1", BigDecimal.valueOf(29.99), 50, "Categoria 1", "http://exemplo.com/imagem1.jpg"),
-            new Produto("PROD-1727927713234","Produto 2", BigDecimal.valueOf(49.99), 30, "Categoria 2", "http://exemplo.com/imagem2.jpg")
-    );
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve adicionar todos os produtos do banco a uma lista")
+    void getAll() throws Exception {
+        List<Produto> produtos = List.of(
+                criarProduto("2.672", "Produto 1"),
+                criarProduto("2.673", "Produto 2")
+        );
 
+        when(produtoRepository.findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(true),
+                eq(false),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(produtos));
 
-    when(repository.findAll()).thenReturn(produtos);
+        mockMvc.perform(get("/produto")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].descricao").value("Produto 1"))
+                .andExpect(jsonPath("$.content[1].descricao").value("Produto 2"));
+    }
 
-    mockMvc.perform(get("/produto")
-                    .contentType(MediaType.APPLICATION_JSON))
-            .andDo(print())
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].nome").value("Produto 1")) // Verifica o nome do primeiro produto
-            .andExpect(jsonPath("$[1].nome").value("Produto 2")); // Verifica o nome do segundo produto
-}
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve filtrar produtos pela categoria e suas descendentes")
+    void getAllByCategoria() throws Exception {
+        List<Produto> produtos = List.of(criarProduto("2.672", "Produto 1"));
+        when(produtoRepository.findCatalogoPorCategoria(
+                eq("001"),
+                isNull(),
+                eq(true),
+                eq(false),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(produtos));
 
+        mockMvc.perform(get("/produto")
+                        .param("categoriaCodigo", "001")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].descricao").value("Produto 1"));
+
+        verify(produtoRepository).findCatalogoPorCategoria(
+                eq("001"),
+                isNull(),
+                eq(true),
+                eq(false),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve pesquisar produtos pelo termo informado")
+    void getAllByBusca() throws Exception {
+        List<Produto> produtos = List.of(criarProduto("2.672", "Caderno escolar"));
+        when(produtoRepository.findCatalogoPorCategoria(
+                isNull(),
+                eq("caderno"),
+                eq(true),
+                eq(false),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(produtos));
+
+        mockMvc.perform(get("/produto")
+                        .param("busca", "  caderno  "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].descricao").value("Caderno escolar"));
+
+        verify(produtoRepository).findCatalogoPorCategoria(
+                isNull(),
+                eq("caderno"),
+                eq(true),
+                eq(false),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    @WithMockUser(roles = "CLIENTE")
+    @DisplayName("Deve omitir produtos não publicados para usuários comuns")
+    void getAllPublico() throws Exception {
+        when(produtoRepository.findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(false),
+                eq(false),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/produto"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        verify(produtoRepository).findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(false),
+                eq(false),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    @WithMockUser(roles = "CLIENTE")
+    @DisplayName("Deve retornar somente os produtos selecionados para a loja")
+    void getAllDestaquesDaHome() throws Exception {
+        Produto produto = criarProduto("2.672", "Produto selecionado");
+        when(produtoRepository.findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(false),
+                eq(true),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(produto)));
+
+        mockMvc.perform(get("/produto").param("somenteDestaques", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].descricao").value("Produto selecionado"));
+
+        verify(produtoRepository).findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(false),
+                eq(true),
+                any(Pageable.class)
+        );
+    }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     @DisplayName("Deve deletar um produto")
-    void deleteProduto() throws Exception{
-        String codProd = "PROD-1727927713234";
-        Produto produto = new Produto(codProd,"Produto 2", BigDecimal.valueOf(49.99), 30, "Categoria 2", "http://exemplo.com/imagem2.jpg");
-        when(repository.findById(codProd)).thenReturn(Optional.of(produto));
-        mockMvc.perform(delete("/produto/" + codProd)
+    void deleteProduto() throws Exception {
+        String codigoSantri = "2.672";
+        Produto produto = criarProduto(codigoSantri, "Produto 1");
+        when(produtoRepository.findById(codigoSantri)).thenReturn(Optional.of(produto));
+
+        mockMvc.perform(delete("/produto/" + codigoSantri)
                         .contentType(MediaType.APPLICATION_JSON))
-                .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().string("Produto deletado com sucesso!"));
 
-        verify(repository, times(1)).delete(produto);
+        verify(produtoRepository, times(1)).delete(produto);
     }
 
-@Test
-@WithMockUser(roles = "ADMIN")
-@DisplayName("Deve alterar um produto")
-void updateProduto() throws Exception {
-    String codProd = "PROD-1727927713234";
-    Produto existingProduto = new Produto(codProd, "Produto 1", BigDecimal.valueOf(49.99), 30, "Categoria 1", "http://exemplo.com/imagem1.jpg");
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve alterar somente a apresentação do produto")
+    void updateApresentacaoProduto() throws Exception {
+        String codigoSantri = "2.672";
+        Produto produto = criarProduto(codigoSantri, "Produto 1");
+        produto.atualizarApresentacao("Nome público", true, true, null);
+        when(apresentacaoProdutoService.atualizar(
+                codigoSantri,
+                "Nome público",
+                true,
+                true,
+                null
+        ))
+                .thenReturn(new ProdutoResponseDTO(produto));
 
+        mockMvc.perform(multipart("/produto/" + codigoSantri + "/apresentacao")
+                        .param("nomeExibidoSite", "Nome público")
+                        .param("exibirNoSite", "true")
+                        .param("destaqueNaHome", "true")
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.codigoSantri").value(codigoSantri))
+                .andExpect(jsonPath("$.nomeExibidoSite").value("Nome público"));
 
-    when(repository.findById(codProd)).thenReturn(Optional.of(existingProduto));
+        verify(apresentacaoProdutoService).atualizar(
+                codigoSantri,
+                "Nome público",
+                true,
+                true,
+                null
+        );
+    }
 
-    // Dados que serão enviados na requisição de atualização
-    ProdutoRequestDTO requestDTO = new ProdutoRequestDTO("Produto Atualizado", BigDecimal.valueOf(59.99), 20, "Categoria Atualizada", "http://exemplo.com/imagem_atualizada.jpg");
+    private ProdutoRequestDTO criarRequest(String codigoSantri, String descricao) {
+        return new ProdutoRequestDTO(
+                codigoSantri,
+                descricao,
+                descricao,
+                "96099000",
+                "UN",
+                "ACRILEX",
+                "090120000",
+                new BigDecimal("100.000"),
+                new BigDecimal("9.99"),
+                BigDecimal.ZERO,
+                CATEGORIA_CODIGO,
+                "https://exemplo.com/imagem.jpg",
+                true
+        );
+    }
 
-    mockMvc.perform(put("/produto/" + codProd)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(requestDTO)))
-            .andDo(print())
-            .andExpect(status().isOk())
-            .andExpect(content().string("Produto atualizado com sucesso!")); // Verifica a mensagem de sucesso
-
-    // Verifica se o método save não foi chamado explicitamente, já que o Hibernate deve gerenciar a transação
-    verify(repository, never()).save(any(Produto.class));
-
-    // Verifica se o produto foi atualizado corretamente
-    verify(repository, times(1)).findById(codProd);
-}
-
+    private Produto criarProduto(String codigoSantri, String descricao) {
+        return new Produto(criarRequest(codigoSantri, descricao), categoria);
+    }
 }

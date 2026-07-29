@@ -1,24 +1,86 @@
-import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import ProdutosList from './pages/ProdutosList';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Login from './components/login/Login';
 import Home from './pages/Home';
+import ImportacaoProdutos from './pages/ImportacaoProdutos';
+import VitrinesHomeAdmin from './pages/VitrinesHomeAdmin';
+import { useAuth } from './context/AuthProvider';
+import { useCategoriasPrincipais } from './hooks/useCategoriasPrincipais';
 
 
-const menuLinks = [
-  { label: 'Esportes e Lazer', to: '/produtos' },
-  { label: 'Cozinha', to: '/produtos' },
-  { label: 'Ferramenta e Construção', to: '/produtos' },
-  { label: 'Vestuário e Acessórios', to: '/produtos' },
-  { label: 'Eletrônicos', to: '/produtos' },
-  { label: 'Saúde', to: '/produtos' },
-  { label: 'Informática', to: '/produtos' },
-  { label: 'Papelaria', to: '/produtos' },
-];
+function RotaAdmin({ children }: { children: ReactNode }) {
+  const { isAuthenticated, funcao } = useAuth();
+
+  if (!isAuthenticated || funcao !== 'ROLE_ADMIN') {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+function BarraBusca() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [termo, setTermo] = useState('');
+
+  useEffect(() => {
+    if (location.pathname !== '/produtos') {
+      setTermo('');
+      return;
+    }
+    setTermo(new URLSearchParams(location.search).get('busca') ?? '');
+  }, [location.pathname, location.search]);
+
+  const pesquisar = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const parametros = location.pathname === '/produtos'
+      ? new URLSearchParams(location.search)
+      : new URLSearchParams();
+    const termoNormalizado = termo.trim();
+
+    if (termoNormalizado) {
+      parametros.set('busca', termoNormalizado);
+    } else {
+      parametros.delete('busca');
+    }
+
+    navigate({
+      pathname: '/produtos',
+      search: parametros.toString(),
+    });
+  };
+
+  return (
+    <form className="search-bar" role="search" onSubmit={pesquisar}>
+      <input
+        type="search"
+        placeholder="Buscar por produto, código ou marca"
+        aria-label="Buscar produtos"
+        value={termo}
+        onChange={(event) => setTermo(event.target.value)}
+      />
+      <button type="submit" aria-label="Pesquisar">
+        <i className="bi bi-search" />
+      </button>
+    </form>
+  );
+}
 
 function App() {
-
+  const { isAuthenticated, funcao, logout } = useAuth();
+  const { data: categoriasPrincipais = [], isLoading: carregandoCategorias } =
+    useCategoriasPrincipais(funcao || 'publico');
 
   return (
     <Router>
@@ -49,35 +111,73 @@ function App() {
               <span className="brand-subtitle">MAGAZINE</span>
             </Link>
 
-            <div className="search-bar" role="search">
-              <input type="search" placeholder="Buscar" aria-label="Buscar produtos" />
-              <button type="button" aria-label="Pesquisar">
-                <i className="bi bi-search" />
-              </button>
-            </div>
+            <BarraBusca />
 
             <div className="header-actions">
-              <Link className="utility-link utility-link--account" to="/login" aria-label="Minha conta e login">
-                <i className="bi bi-person-circle" />
-                <span>
-                  <strong>Minha conta</strong>
-                  <small>Cadastre-se | Fazer login</small>
-                </span>
-              </Link>
-              <button className="utility-button" type="button" aria-label="Favoritos">
-                <i className="bi bi-heart" />
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    className="utility-link utility-link--account"
+                    to={funcao === 'ROLE_ADMIN' ? '/admin/importacao-produtos' : '/produtos'}
+                    aria-label="Acessar minha conta"
+                  >
+                    <i className="bi bi-person-check-fill" />
+                    <span>
+                      <strong>Minha conta</strong>
+                      <small>{funcao === 'ROLE_ADMIN' ? 'Administrador' : 'Usuário conectado'}</small>
+                    </span>
+                  </Link>
+                  <button
+                    className="utility-button utility-button--logout"
+                    type="button"
+                    onClick={logout}
+                    aria-label="Sair da conta"
+                    title="Sair da conta"
+                  >
+                    <i className="bi bi-box-arrow-right" />
+                    <span>Sair</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    className="utility-link utility-link--account"
+                    to="/login"
+                    aria-label="Minha conta e login"
+                  >
+                    <i className="bi bi-person-circle" />
+                    <span>
+                      <strong>Minha conta</strong>
+                      <small>Cadastre-se | Fazer login</small>
+                    </span>
+                  </Link>
+                  <button className="utility-button" type="button" aria-label="Favoritos">
+                    <i className="bi bi-heart" />
+                  </button>
+                </>
+              )}
 
             </div>
           </div>
 
           <nav className="main-nav" aria-label="Categorias principais">
             <div className="main-nav__inner">
-              {menuLinks.map((item) => (
-                <Link key={item.label} className="main-nav__link" to={item.to}>
-                  {item.label}
+              <Link className="main-nav__link main-nav__link--all" to="/produtos">
+                Todos
+              </Link>
+              {categoriasPrincipais.map((categoria) => (
+                <Link
+                  key={categoria.codigo}
+                  className="main-nav__link"
+                  to={`/produtos?categoria=${encodeURIComponent(categoria.codigo)}`}
+                  title={categoria.caminho}
+                >
+                  {categoria.nome}
                 </Link>
               ))}
+              {carregandoCategorias && (
+                <span className="main-nav__status">Carregando categorias...</span>
+              )}
             </div>
           </nav>
         </header>
@@ -91,6 +191,22 @@ function App() {
             {/* manter /inicio como alias para a home; redireciona para / */}
             <Route path="/inicio" element={<Navigate to="/" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route
+              path="/admin/importacao-produtos"
+              element={(
+                <RotaAdmin>
+                  <ImportacaoProdutos />
+                </RotaAdmin>
+              )}
+            />
+            <Route
+              path="/admin/vitrines-home"
+              element={(
+                <RotaAdmin>
+                  <VitrinesHomeAdmin />
+                </RotaAdmin>
+              )}
+            />
           </Routes>
         </main>
 

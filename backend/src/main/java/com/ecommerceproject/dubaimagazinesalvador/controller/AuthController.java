@@ -6,10 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,32 +36,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@RequestBody @Validated AuthenticationDTO data) {
         try {
-            if (data != null) {
-                System.out.println("Teste");
-                System.out.println("Existe dados");
-                System.out.println("Email/Login: " + data.emailOrLogin() + ", Password: " + data.senha());
-                System.out.println("TESTE");
-            } else {
-                System.out.println("Não existe dados");
-            }
-    
-            // Autentica o usuário com email/login e senha
-            
             var usernamePassword = new UsernamePasswordAuthenticationToken(data.emailOrLogin(), data.senha());
             var auth = this.authenticationManager.authenticate(usernamePassword);
-            System.err.println("Autenticação realizada com sucesso");
-            System.out.println("Authentication successful: " + auth.isAuthenticated());
-            System.out.println("User details: " + auth.getPrincipal());
-    
-            // Aqui você obtém o principal como Usuario, que é o tipo correto
             Usuario usuario = (Usuario) auth.getPrincipal();
-    
-            // Gere o token com base no objeto Usuario
             var token = tokenService.generateToken(usuario);
-    
             return ResponseEntity.ok(new LoginResponseDTO(token));
         } catch (AuthenticationException e) {
-            System.out.println("Authentication failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponseDTO("Invalid credentials"));
         }
     }

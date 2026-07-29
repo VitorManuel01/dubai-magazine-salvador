@@ -13,11 +13,41 @@
   box-shadow: 0 16px 30px rgba(24, 49, 83, 0.12);
 }
 
+.produto-card--oculto {
+  border-color: rgba(100, 116, 139, 0.32);
+  background: #fbfcfe;
+}
+
+.produto-image-shell {
+  position: relative;
+}
+
 .produto-img {
   height: 178px;
   object-fit: contain;
   padding: 16px;
   background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
+}
+
+.produto-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.produto-status--visivel {
+  background: #238457;
+}
+
+.produto-status--oculto {
+  background: #64748b;
 }
 
 .produto-card .card-body {
@@ -67,4 +97,75 @@
 .produto-card .btn-success {
   background: #1f9d55;
   border-color: #1f9d55;
+}
+
+.produto-admin-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(24, 49, 83, 0.1);
+  text-align: left;
+}
+
+.produto-image-input,
+.produto-name-input {
+  display: grid;
+  gap: 6px;
+  color: #1e3356;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.produto-image-input input,
+.produto-name-input input {
+  width: 100%;
+  font-size: 0.72rem;
+}
+
+.produto-name-input input {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid rgba(56, 112, 200, 0.24);
+  border-radius: 9px;
+  color: #1e3356;
+  background: #fff;
+}
+
+.produto-name-input input:focus {
+  border-color: #3870c8;
+  outline: 3px solid rgba(56, 112, 200, 0.12);
+}
+
+.produto-image-input small,
+.produto-name-input small {
+  color: #748198;
+  font-weight: 400;
+}
+
+.produto-visibility {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374761;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.produto-visibility input {
+  width: 16px;
+  height: 16px;
+  accent-color: #3870c8;
+}
+
+.produto-admin-actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.produto-admin-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.75rem;
 }

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDadosProdutos } from '../hooks/useDadosProdutos';
+import { useVitrinesHome } from '../hooks/useVitrinesHome';
+import {
+  IMAGEM_PRODUTO_PLACEHOLDER,
+  resolverImagemProduto,
+} from '../utils/resolverImagemProduto';
 
 
 
@@ -16,9 +21,16 @@ type PromoSlide = {
 
 const Home: React.FC = () => {
 
-  const { data: produtos = [], isLoading, error } = useDadosProdutos();
+  const {
+    data: produtosSelecionados = [],
+    isLoading: carregandoSelecionados,
+    error: erroSelecionados,
+  } = useDadosProdutos(undefined, 0, 'publico', undefined, true);
+  const { data: vitrines = [] } = useVitrinesHome();
 
   const [activeSlide, setActiveSlide] = useState(0);
+  const [vitrineAtiva, setVitrineAtiva] = useState(0);
+  const [produtoVitrineAtivo, setProdutoVitrineAtivo] = useState(0);
 
 
   const promoSlides = useMemo<PromoSlide[]>(() => {
@@ -47,7 +59,7 @@ const Home: React.FC = () => {
         image: `${base}?text=Banner+3&font=montserrat`,
       },
     ];
-  }, [produtos]);
+  }, []);
 
   useEffect(() => {
     setActiveSlide(0);
@@ -63,6 +75,35 @@ const Home: React.FC = () => {
     return () => window.clearInterval(intervalId);
   }, [promoSlides.length]);
 
+  useEffect(() => {
+    setVitrineAtiva(0);
+  }, [vitrines.length]);
+
+  useEffect(() => {
+    if (vitrines.length <= 1) return;
+    const intervalId = window.setInterval(() => {
+      setVitrineAtiva((atual) => (atual + 1) % vitrines.length);
+    }, 7000);
+    return () => window.clearInterval(intervalId);
+  }, [vitrines.length]);
+
+  const vitrine = vitrines[vitrineAtiva];
+
+  useEffect(() => {
+    setProdutoVitrineAtivo(0);
+  }, [vitrine?.id]);
+
+  useEffect(() => {
+    const quantidadeProdutos = vitrine?.produtos.length ?? 0;
+    if (quantidadeProdutos <= 1) return;
+
+    const intervalId = window.setInterval(() => {
+      setProdutoVitrineAtivo((atual) => (atual + 1) % quantidadeProdutos);
+    }, 3200);
+
+    return () => window.clearInterval(intervalId);
+  }, [vitrine?.id, vitrine?.produtos.length]);
+
   const handlePreviousSlide = () => {
     setActiveSlide((current) => (current - 1 + promoSlides.length) % promoSlides.length);
   };
@@ -72,8 +113,10 @@ const Home: React.FC = () => {
   };
 
 
-  const featuredProducts = produtos.slice(0, 4);
-  const spotlight = produtos[0];
+  const featuredProducts = produtosSelecionados;
+  const produtoVitrine = vitrine?.produtos.length
+    ? vitrine.produtos[produtoVitrineAtivo % vitrine.produtos.length]
+    : undefined;
   return (
     <div className="home-page">
       <section className="promo-carousel" aria-label="Banner promocional da página inicial">
@@ -119,39 +162,50 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      <section className="catalog-highlight">
-        <div className="catalog-highlight__content">
-          <span className="catalog-highlight__eyebrow">{spotlight ? 'Boias infláveis · verão 2026' : 'Catálogo em destaque'}</span>
-          <h1>Catálogo limpo, azul forte e foco total no produto</h1>
-          <p>
-            Ajustamos o frontend para ficar muito mais próximo do layout da referência: barra superior,
-            navegação fina, banner em carrossel e catálogo em destaque logo abaixo.
-          </p>
-          <div className="hero-actions">
-            <Link className="btn btn-light" to="/produtos">
-              Ver catálogo
-            </Link>
-
+      {vitrine && (
+        <section className="catalog-highlight" aria-live="polite" key={vitrine.id}>
+          <div className="catalog-highlight__content">
+            <span className="catalog-highlight__eyebrow">{vitrine.categoriaNome}</span>
+            <h1>{vitrine.titulo}</h1>
+            <p>{vitrine.descricao}</p>
+            <div className="hero-actions">
+              <Link
+                className="btn btn-light"
+                to={`/produtos?categoria=${encodeURIComponent(vitrine.categoriaCodigo)}`}
+              >
+                Ver categoria
+              </Link>
+            </div>
           </div>
-          {error && <p className="catalog-highlight__error">Erro ao carregar produtos: {error.message}</p>}
-          {isLoading && <p className="catalog-highlight__loading">Carregando catálogo...</p>}
-        </div>
 
-        <div className="catalog-highlight__visual">
-          {spotlight ? (
-            <article className="catalog-highlight-card">
-              <img src={spotlight.imagemUrl} alt={spotlight.nome} />
-              <div>
-                <h2>{spotlight.nome}</h2>
-                <p>R$ {spotlight.preco.toFixed(2)}</p>
-                <span>{spotlight.qtdEstoque} em estoque</span>
+          <div className="catalog-highlight__visual">
+            {produtoVitrine ? (
+              <div className="catalog-highlight-products">
+                <article
+                  className="catalog-highlight-product"
+                  key={`${vitrine.id}-${produtoVitrine.codigoSantri}`}
+                >
+                  <img
+                    src={resolverImagemProduto(produtoVitrine.imagemUrl)}
+                    alt={produtoVitrine.nomeExibidoSite}
+                    onError={(event) => {
+                      event.currentTarget.src = IMAGEM_PRODUTO_PLACEHOLDER;
+                    }}
+                  />
+                  <div>
+                    <h2>{produtoVitrine.nomeExibidoSite}</h2>
+                    <p>R$ {produtoVitrine.precoVenda.toFixed(2)}</p>
+                  </div>
+                </article>
               </div>
-            </article>
-          ) : (
-            <div className="catalog-highlight-card catalog-highlight-card--empty">Catálogo em destaque</div>
-          )}
-        </div>
-      </section>
+            ) : (
+              <div className="catalog-highlight-card catalog-highlight-card--empty">
+                Nenhum produto visível nesta categoria.
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="home-section">
         <div className="home-section__header">
@@ -165,13 +219,28 @@ const Home: React.FC = () => {
         </div>
 
         <div className="home-grid">
+          {carregandoSelecionados && (
+            <p className="home-selection-status">Carregando seleção...</p>
+          )}
+          {erroSelecionados && (
+            <p className="home-selection-status">Não foi possível carregar a seleção.</p>
+          )}
+          {!carregandoSelecionados && !erroSelecionados && featuredProducts.length === 0 && (
+            <p className="home-selection-status">A seleção da loja está sendo preparada.</p>
+          )}
           {featuredProducts.map((produto) => (
-            <article className="mini-product-card" key={produto.codProd}>
-              <img src={produto.imagemUrl} alt={produto.nome} />
+            <article className="mini-product-card" key={produto.codigoSantri}>
+              <img
+                src={resolverImagemProduto(produto.imagemUrl)}
+                alt={produto.nomeExibidoSite}
+                onError={(event) => {
+                  event.currentTarget.src = IMAGEM_PRODUTO_PLACEHOLDER;
+                }}
+              />
               <div className="mini-product-card__body">
-                <h3>{produto.nome}</h3>
-                <p>R$ {produto.preco.toFixed(2)}</p>
-                <small>{produto.qtdEstoque} em estoque</small>
+                <h3>{produto.nomeExibidoSite}</h3>
+                <p>R$ {produto.precoVenda.toFixed(2)}</p>
+                <small>{produto.quantidade} em estoque</small>
 
               </div>
             </article>

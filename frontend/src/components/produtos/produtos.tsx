@@ -1,140 +1,200 @@
-import 'bootstrap/dist/css/bootstrap.min.css'; // Certifique-se de importar o Bootstrap no seu projeto
-import './produtos.css'; // Importe seu CSS customizado se necessário
-import { Decimal } from 'decimal.js';
+import { ChangeEvent, useEffect, useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './produtos.css';
 import { useAuth } from '../../context/AuthProvider';
-import { deleteDadosProdutos } from '../../hooks/deleteDadosProduto';
-import { updateDadosProdutos } from '../../hooks/updateDadosProduto';
-import { useState } from 'react';
+import { useAtualizarApresentacaoProduto } from '../../hooks/useAtualizarApresentacaoProduto';
+import {
+  IMAGEM_PRODUTO_PLACEHOLDER,
+  resolverImagemProduto,
+} from '../../utils/resolverImagemProduto';
 
 interface ProdutosProps {
-    codProd?: string,
-    nome: string,
-    preco: Decimal,
-    qtdEstoque: number,
-    categoria: string,
-    imagemUrl: string
+  codigoSantri: string;
+  descricao: string;
+  nomeExibidoSite: string;
+  ncm: string;
+  unidade: string;
+  marca: string;
+  codigoOriginal: string;
+  quantidade: number;
+  precoVenda: number;
+  precoVendaIva: number;
+  categoriaCodigo: string;
+  categoriaNome: string;
+  categoriaCaminho: string;
+  imagemUrl: string | null;
+  exibirNoSite: boolean;
+  destaqueNaHome: boolean;
 }
 
-interface InputProps {
-  label: string;
-  value: string | number | Decimal;
-  updateValue(value: any): void;
-  type?: string;
-  options?: string[]; // Optional prop for select input
-}
-const Input = ({ label, value, updateValue, type = "text", options }: InputProps) => {
-  return (
-      <div className="mb-3">
-          <label className="form-label">{label}</label>
-          {type === 'select' ? (
-              <select className="form-select" value={typeof value === 'object' && value instanceof Decimal ? value.toString() : value} onChange={(e) => updateValue(e.target.value)}>
-                  {options?.map(option => (
-                      <option key={option} value={option}>{option}</option>
-                  ))}
-              </select>
-          ) : (
-              <input
-                  className="form-control"
-                  type={type}
-                  value={typeof value === 'object' && value instanceof Decimal ? value.toString() : value} // Convert Decimal to string
-                  onChange={(e) => {
-                      const newValue = type === "number" ? e.target.valueAsNumber : e.target.value;
-                      updateValue(newValue);
-                  }}
-              />
-          )}
-      </div>
-  );
-};
-
-export function Produtos({
-  codProd,
-  nome,
-  preco,
-  qtdEstoque,
-  categoria,
-  imagemUrl
-}: ProdutosProps) {
-
-  const { isAuthenticated } = useAuth();
-  const { mutate: Deletar } = deleteDadosProdutos();
-  const { mutate: Atualizar } = updateDadosProdutos();
-
-  // Estado para controlar o modo de edição
+export function Produtos(props: ProdutosProps) {
+  const { funcao } = useAuth();
+  const isAdmin = funcao === 'ROLE_ADMIN';
+  const atualizarApresentacao = useAtualizarApresentacaoProduto();
   const [isEditing, setIsEditing] = useState(false);
-  const [editNome, setEditNome] = useState(nome);
-  const [editPreco, setEditPreco] = useState(preco);
-  const [editQtdEstoque, setEditQtdEstoque] = useState(qtdEstoque);
-  const [editCategoria, setEditCategoria] = useState(categoria);
-  const [editImagemUrl, setEditImagemUrl] = useState(imagemUrl);
+  const [nomeExibidoSite, setNomeExibidoSite] = useState(props.nomeExibidoSite);
+  const [exibirNoSite, setExibirNoSite] = useState(props.exibirNoSite);
+  const [destaqueNaHome, setDestaqueNaHome] = useState(props.destaqueNaHome);
+  const [imagem, setImagem] = useState<File | undefined>();
+  const [imagemPreview, setImagemPreview] = useState<string | null>(null);
 
-  const handleDelete = () => {
-      if (codProd) {
-          Deletar(codProd);
-      } else {
-          console.error("Código do produto não definido.");
-      }
+  useEffect(() => {
+    setNomeExibidoSite(props.nomeExibidoSite);
+    setExibirNoSite(props.exibirNoSite);
+    setDestaqueNaHome(props.destaqueNaHome);
+  }, [props.destaqueNaHome, props.exibirNoSite, props.nomeExibidoSite]);
+
+  useEffect(() => {
+    if (!imagem) {
+      setImagemPreview(null);
+      return;
+    }
+    const preview = URL.createObjectURL(imagem);
+    setImagemPreview(preview);
+    return () => URL.revokeObjectURL(preview);
+  }, [imagem]);
+
+  const selecionarImagem = (event: ChangeEvent<HTMLInputElement>) => {
+    setImagem(event.target.files?.[0]);
   };
 
-  const handleUpdate = () => {
-      if (codProd) {
-          Atualizar({
-              codProd,
-              data: {
-                  nome: editNome,
-                  preco: editPreco,
-                  qtdEstoque: editQtdEstoque,
-                  categoria: editCategoria,
-                  imagemUrl: editImagemUrl,
-              }
-          });
-          setIsEditing(false); // Sair do modo de edição
-      }
+  const cancelar = () => {
+    setNomeExibidoSite(props.nomeExibidoSite);
+    setExibirNoSite(props.exibirNoSite);
+    setDestaqueNaHome(props.destaqueNaHome);
+    setImagem(undefined);
+    setIsEditing(false);
+    atualizarApresentacao.reset();
   };
 
-  const handleCancel = () => {
-      // Reverter as alterações ao cancelar a edição
-      setEditNome(nome);
-      setEditPreco(preco);
-      setEditQtdEstoque(qtdEstoque);
-      setEditCategoria(categoria);
-      setEditImagemUrl(imagemUrl);
-      setIsEditing(false); // Sair do modo de edição
+  const salvar = () => {
+    atualizarApresentacao.mutate(
+      {
+        codigoSantri: props.codigoSantri,
+        nomeExibidoSite,
+        exibirNoSite,
+        destaqueNaHome,
+        imagem,
+      },
+      {
+        onSuccess: () => {
+          setImagem(undefined);
+          setIsEditing(false);
+        },
+      }
+    );
   };
 
   return (
-      <div className="card produto-card h-100">
-          <img src={imagemUrl} className="card-img-top img-fluid produto-img" alt={nome} />
-          <div className="card-body">
-              {isEditing ? (
-                  <>
-                      <Input label="Nome" value={editNome} updateValue={setEditNome} />
-                      <Input label="Preço" value={editPreco} updateValue={setEditPreco} type="number" />
-                      <Input label="Quantidade em Estoque" value={editQtdEstoque} updateValue={setEditQtdEstoque} type="number" />
-                      <Input label="Categoria" value={editCategoria} updateValue={setEditCategoria} />
-                      <Input label="URL da Imagem" value={editImagemUrl} updateValue={setEditImagemUrl} />
-                      
-                      <button className="btn btn-success" onClick={handleUpdate}>Salvar</button>
-                      <button className="btn btn-secondary" onClick={handleCancel}>Cancelar</button>
-                  </>
-              ) : (
-                  <>
-                      <h5 className="card-title">{nome}</h5>
-                      <ul className="list-unstyled">
-                          <li><strong>Preço:</strong> R$ {preco.toFixed(2)}</li> {/* Formatação adequada para 2 casas decimais */}
-                          <li><strong>Quantidade em Estoque:</strong> {qtdEstoque}</li>
-                          <li><strong>Categoria:</strong> {categoria}</li>
-                      </ul>
-
-                      {isAuthenticated && (
-                          <>
-                              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Editar</button>
-                              <button className="btn btn-secondary" onClick={handleDelete}>Deletar</button>
-                          </>
-                      )}
-                  </>
-              )}
-          </div>
+    <article className={`card produto-card h-100 ${!props.exibirNoSite ? 'produto-card--oculto' : ''}`}>
+      <div className="produto-image-shell">
+        <img
+          src={imagemPreview ?? resolverImagemProduto(props.imagemUrl)}
+          className="card-img-top img-fluid produto-img"
+          alt={props.nomeExibidoSite}
+          onError={(event) => {
+            event.currentTarget.src = IMAGEM_PRODUTO_PLACEHOLDER;
+          }}
+        />
+        {isAdmin && (
+          <span className={`produto-status ${props.exibirNoSite ? 'produto-status--visivel' : 'produto-status--oculto'}`}>
+            {props.exibirNoSite ? 'Visível' : 'Oculto'}
+          </span>
+        )}
       </div>
+
+      <div className="card-body">
+        <h5 className="card-title">{props.nomeExibidoSite}</h5>
+        <ul className="list-unstyled">
+          <li><strong>Preço:</strong> R$ {Number(props.precoVenda).toFixed(2)}</li>
+          <li><strong>Estoque:</strong> {props.quantidade} {props.unidade}</li>
+          <li><strong>Marca:</strong> {props.marca || 'Não informada'}</li>
+          <li><strong>Categoria:</strong> {props.categoriaNome}</li>
+        </ul>
+
+        {isAdmin && isEditing && (
+          <div className="produto-admin-editor">
+            <label className="produto-name-input">
+              <span>Nome exibido no site</span>
+              <input
+                type="text"
+                value={nomeExibidoSite}
+                maxLength={500}
+                onChange={(event) => setNomeExibidoSite(event.target.value)}
+                disabled={atualizarApresentacao.isPending}
+              />
+              <small>
+                Descrição no Santri: {props.descricao}. Deixe vazio para voltar ao nome do Santri.
+              </small>
+            </label>
+
+            <label className="produto-image-input">
+              <span>Imagem do produto</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={selecionarImagem}
+                disabled={atualizarApresentacao.isPending}
+              />
+              <small>JPG, PNG ou WEBP, até 5 MB.</small>
+            </label>
+
+            <label className="produto-visibility">
+              <input
+                type="checkbox"
+                checked={exibirNoSite}
+                onChange={(event) => setExibirNoSite(event.target.checked)}
+                disabled={atualizarApresentacao.isPending}
+              />
+              <span>Exibir este produto no site</span>
+            </label>
+
+            <label className="produto-visibility">
+              <input
+                type="checkbox"
+                checked={destaqueNaHome}
+                onChange={(event) => setDestaqueNaHome(event.target.checked)}
+                disabled={atualizarApresentacao.isPending}
+              />
+              <span>Exibir na Seleção da Loja</span>
+            </label>
+
+            {atualizarApresentacao.error && (
+              <p className="produto-admin-error">Não foi possível salvar a apresentação.</p>
+            )}
+
+            <div className="produto-admin-actions">
+              <button
+                className="btn btn-success"
+                type="button"
+                onClick={salvar}
+                disabled={atualizarApresentacao.isPending}
+              >
+                {atualizarApresentacao.isPending ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={cancelar}
+                disabled={atualizarApresentacao.isPending}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isAdmin && !isEditing && (
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => setIsEditing(true)}
+          >
+            <i className="bi bi-pencil-square me-1" />
+            Editar apresentação
+          </button>
+        )}
+      </div>
+    </article>
   );
 }

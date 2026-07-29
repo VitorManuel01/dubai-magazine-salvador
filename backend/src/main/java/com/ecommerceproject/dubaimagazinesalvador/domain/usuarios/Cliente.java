@@ -2,6 +2,7 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
 import java.time.LocalDate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -23,6 +24,7 @@ public class Cliente extends Usuario {
 
     private String CPF;
 
+    @Column(columnDefinition = "CHAR(1)")
     private String sexo;
 
     private LocalDate dataNascimento;
