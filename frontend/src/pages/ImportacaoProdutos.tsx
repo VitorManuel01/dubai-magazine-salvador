@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { validarArquivoOds } from '../utils/validacaoArquivos';
 import './ImportacaoProdutos.css';
 
 interface ResultadoImportacao {
@@ -32,19 +33,32 @@ function ImportacaoProdutos() {
   const [resultado, setResultado] = useState<ResultadoImportacao | null>(null);
   const [erro, setErro] = useState('');
 
-  const handleArquivo = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleArquivo = async (event: ChangeEvent<HTMLInputElement>) => {
     const selecionado = event.target.files?.[0] ?? null;
-    setArquivo(selecionado);
     setResultado(null);
     setErro('');
     setProgresso(0);
     setFase('pronto');
+    if (!selecionado) {
+      setArquivo(null);
+      return;
+    }
+
+    const erroValidacao = await validarArquivoOds(selecionado);
+    if (erroValidacao) {
+      setArquivo(null);
+      setErro(erroValidacao);
+      setFase('erro');
+      event.target.value = '';
+      return;
+    }
+    setArquivo(selecionado);
   };
 
   const importar = async (event: FormEvent) => {
     event.preventDefault();
     if (!arquivo) {
-      setErro('Selecione o arquivo ODS do inventário.');
+      setErro('Selecione o arquivo ODS da relação analítica de produtos.');
       setFase('erro');
       return;
     }
@@ -86,10 +100,10 @@ function ImportacaoProdutos() {
         setErro(
           error.response?.data?.erro
           ?? error.response?.data?.message
-          ?? 'Não foi possível importar o inventário.'
+          ?? 'Não foi possível importar a relação de produtos.'
         );
       } else {
-        setErro('Não foi possível importar o inventário.');
+        setErro('Não foi possível importar a relação de produtos.');
       }
       setFase('erro');
     }
@@ -108,10 +122,10 @@ function ImportacaoProdutos() {
       <div className="import-heading">
         <div>
           <span className="import-eyebrow">Área administrativa</span>
-          <h1>Importar inventário</h1>
+          <h1>Importar relação de produtos</h1>
           <p>
-            Envie o relatório de inventário agrupado por categoria, com o valor de análise
-            configurado como preço de venda.
+            Envie a Relação de Produtos por Grupo gerada no Santri com produtos ativos e
+            estoque físico positivo.
           </p>
         </div>
         <div className="import-heading__actions">
@@ -142,7 +156,7 @@ function ImportacaoProdutos() {
             <input
               id="arquivo-inventario"
               type="file"
-              accept=".ods,application/vnd.oasis.opendocument.spreadsheet"
+              accept=".ods"
               onChange={handleArquivo}
               disabled={ocupada}
             />
@@ -151,8 +165,9 @@ function ImportacaoProdutos() {
           <div className="import-notice">
             <i className="bi bi-shield-check" />
             <p>
-              Produtos existentes serão atualizados pelo código Santri. Imagens, visibilidade
-              e seleção da loja serão preservadas. Produtos ausentes na planilha não serão excluídos.
+              Produtos existentes serão atualizados pelo código Santri. Nome público e imagens
+              serão preservados. Produtos ausentes não serão excluídos, mas ficarão indisponíveis
+              e ocultos até reaparecerem em uma importação.
             </p>
           </div>
 
@@ -162,7 +177,7 @@ function ImportacaoProdutos() {
                 <span>
                   {fase === 'enviando'
                     ? `Enviando arquivo: ${progresso}%`
-                    : 'Arquivo enviado. Processando categorias e produtos...'}
+                    : 'Arquivo enviado. Processando a relação de produtos...'}
                 </span>
                 <span>{progresso}%</span>
               </div>
@@ -186,7 +201,7 @@ function ImportacaoProdutos() {
           >
             {fase === 'enviando' && 'Enviando...'}
             {fase === 'processando' && 'Importando...'}
-            {!ocupada && 'Importar inventário'}
+            {!ocupada && 'Importar relação'}
           </button>
         </form>
       </section>
@@ -224,8 +239,8 @@ function ImportacaoProdutos() {
 
           {resultado.linhasIgnoradas > 0 && (
             <p className="import-result__note">
-              {resultado.linhasIgnoradas.toLocaleString('pt-BR')} linhas informativas ou
-              de totalização foram ignoradas.
+              {resultado.linhasIgnoradas.toLocaleString('pt-BR')} linhas sem produto ativo
+              e estoque positivo foram ignoradas.
             </p>
           )}
         </section>

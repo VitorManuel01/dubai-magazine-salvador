@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
-import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogoPublicoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.VitrineHome;
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.VitrineHomeRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.VitrineHomeResponseDTO;
@@ -154,13 +154,13 @@ public class VitrineHomeService {
     }
 
     private VitrineHomeResponseDTO montarResposta(VitrineHome vitrine) {
-        List<ProdutoResponseDTO> produtos = produtoRepository.findCatalogoPorCategoria(
+        List<ProdutoCatalogoPublicoDTO> produtos = produtoRepository.findCatalogoPorCategoria(
                 vitrine.getCategoria().getCodigo(),
                 null,
                 false,
                 false,
                 PageRequest.of(0, PRODUTOS_POR_VITRINE)
-        ).map(ProdutoResponseDTO::new).getContent();
+        ).map(ProdutoCatalogoPublicoDTO::new).getContent();
         return new VitrineHomeResponseDTO(vitrine, produtos);
     }
 

@@ -1,8 +1,6 @@
 package com.ecommerceproject.dubaimagazinesalvador.infra.security;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -21,6 +19,9 @@ public class TokenService {
 
     @Value("${api.Security.token.secret}")
     private String secret;
+
+    @Value("${api.security.token.expiration-seconds:3600}")
+    private long expirationSeconds;
 
     
     
@@ -52,12 +53,11 @@ public class TokenService {
                     .verify(token)
                     .getSubject();
         } catch (JWTVerificationException e) {
-            return "";
-            //throw new RuntimeException("Erro ao verificar Token", e);
+            return null;
         }
     }
 
     private Instant generateExpirationData(){
-        return LocalDateTime.now().plusHours(2).toInstant(ZoneOffset.of("-03:00"));
+        return Instant.now().plusSeconds(expirationSeconds);
     }
 }

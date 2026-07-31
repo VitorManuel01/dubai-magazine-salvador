@@ -1,4 +1,4 @@
-import { DadosProdutos } from './DadosProdutos';
+import { ProdutoCatalogoPublico } from './DadosProdutos';
 
 export interface VitrineHome {
   id: number;
@@ -9,7 +9,7 @@ export interface VitrineHome {
   descricao: string;
   ordem: number;
   ativo: boolean;
-  produtos: DadosProdutos[];
+  produtos: ProdutoCatalogoPublico[];
 }
 
 export interface VitrineHomeRequest {

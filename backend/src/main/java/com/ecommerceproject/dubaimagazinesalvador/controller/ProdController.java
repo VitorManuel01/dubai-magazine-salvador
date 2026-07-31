@@ -5,7 +5,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogoPublicoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
@@ -28,7 +27,6 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
 
 @RestController
-@RequestMapping("produto")
 public class ProdController {
 
     private final ProdutoRepository produtoRepository;
@@ -45,7 +43,7 @@ public class ProdController {
         this.apresentacaoProdutoService = apresentacaoProdutoService;
     }
 
-    @PostMapping
+    @PostMapping("/produto")
     public ResponseEntity<ProdutoResponseDTO> saveProduto(@RequestBody ProdutoRequestDTO data) {
         if (data.codigoSantri() == null || data.codigoSantri().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O código Santri é obrigatório.");
@@ -59,15 +57,51 @@ public class ProdController {
         return ResponseEntity.status(HttpStatus.CREATED).body(new ProdutoResponseDTO(produto));
     }
 
-    @GetMapping
+    @GetMapping("/produto")
     @Transactional(readOnly = true)
-    public Page<ProdutoResponseDTO> getAll(
+    public Page<ProdutoCatalogoPublicoDTO> getAll(
             @RequestParam(required = false) String categoriaCodigo,
             @RequestParam(required = false) String busca,
             @RequestParam(defaultValue = "false") boolean somenteDestaques,
             @RequestParam(defaultValue = "0") int pagina,
-            @RequestParam(defaultValue = "24") int tamanho,
-            Authentication authentication
+            @RequestParam(defaultValue = "24") int tamanho
+    ) {
+        return buscarCatalogo(
+                categoriaCodigo,
+                busca,
+                somenteDestaques,
+                pagina,
+                tamanho,
+                false
+        ).map(ProdutoCatalogoPublicoDTO::new);
+    }
+
+    @GetMapping("/admin/produtos")
+    @Transactional(readOnly = true)
+    public Page<ProdutoResponseDTO> getAllAdministracao(
+            @RequestParam(required = false) String categoriaCodigo,
+            @RequestParam(required = false) String busca,
+            @RequestParam(defaultValue = "false") boolean somenteDestaques,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "24") int tamanho
+    ) {
+        return buscarCatalogo(
+                categoriaCodigo,
+                busca,
+                somenteDestaques,
+                pagina,
+                tamanho,
+                true
+        ).map(ProdutoResponseDTO::new);
+    }
+
+    private Page<Produto> buscarCatalogo(
+            String categoriaCodigo,
+            String busca,
+            boolean somenteDestaques,
+            int pagina,
+            int tamanho,
+            boolean incluirOcultos
     ) {
         if (pagina < 0 || tamanho < 1 || tamanho > 60) {
             throw new ResponseStatusException(
@@ -81,20 +115,16 @@ public class ProdController {
         String buscaNormalizada = busca == null || busca.isBlank()
                 ? null
                 : busca.trim();
-        boolean incluirOcultos = authentication != null
-                && authentication.getAuthorities().stream()
-                        .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
-
         return produtoRepository.findCatalogoPorCategoria(
                 categoriaNormalizada,
                 buscaNormalizada,
                 incluirOcultos,
                 somenteDestaques,
                 PageRequest.of(pagina, tamanho)
-        ).map(ProdutoResponseDTO::new);
+        );
     }
 
-    @DeleteMapping("/{codigoSantri}")
+    @DeleteMapping("/produto/{codigoSantri}")
     public ResponseEntity<String> deleteProduto(@PathVariable String codigoSantri) {
         return produtoRepository.findById(codigoSantri)
                 .map(produto -> {
@@ -105,7 +135,7 @@ public class ProdController {
     }
 
     @PutMapping(
-            value = "/{codigoSantri}/apresentacao",
+            value = "/produto/{codigoSantri}/apresentacao",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public ResponseEntity<ProdutoResponseDTO> updateApresentacao(

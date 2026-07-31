@@ -17,7 +17,13 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
             SELECT produto
             FROM Produto produto
             JOIN FETCH produto.categoria categoria
-            WHERE (:incluirOcultos = true OR produto.exibirNoSite = true)
+            WHERE (
+                    :incluirOcultos = true
+                    OR (
+                        produto.exibirNoSite = true
+                        AND produto.disponivelUltimaImportacao = true
+                    )
+              )
               AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
               AND (
                     :categoriaCodigo IS NULL
@@ -27,10 +33,17 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               AND (
                     :busca IS NULL
                     OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.descricao) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
                     OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR (
+                        :incluirOcultos = true
+                        AND (
+                            LOWER(produto.nome) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.codigoBarras) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.fabricante) LIKE CONCAT('%', LOWER(:busca), '%')
+                        )
+                    )
               )
             ORDER BY produto.nomeExibidoSite ASC
             """,
@@ -38,7 +51,13 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
             SELECT COUNT(produto)
             FROM Produto produto
             JOIN produto.categoria categoria
-            WHERE (:incluirOcultos = true OR produto.exibirNoSite = true)
+            WHERE (
+                    :incluirOcultos = true
+                    OR (
+                        produto.exibirNoSite = true
+                        AND produto.disponivelUltimaImportacao = true
+                    )
+              )
               AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
               AND (
                     :categoriaCodigo IS NULL
@@ -48,10 +67,17 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               AND (
                     :busca IS NULL
                     OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.descricao) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
                     OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR (
+                        :incluirOcultos = true
+                        AND (
+                            LOWER(produto.nome) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.codigoBarras) LIKE CONCAT('%', LOWER(:busca), '%')
+                            OR LOWER(produto.fabricante) LIKE CONCAT('%', LOWER(:busca), '%')
+                        )
+                    )
               )
             """
     )

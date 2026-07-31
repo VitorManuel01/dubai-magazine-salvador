@@ -1,48 +1,46 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './produtos.css';
-import { useAuth } from '../../context/AuthProvider';
+import { useAuth } from '../../context/AuthContext';
 import { useAtualizarApresentacaoProduto } from '../../hooks/useAtualizarApresentacaoProduto';
+import {
+  ehProdutoAdministrativo,
+  ProdutoCatalogo,
+} from '../../interface/DadosProdutos';
 import {
   IMAGEM_PRODUTO_PLACEHOLDER,
   resolverImagemProduto,
 } from '../../utils/resolverImagemProduto';
+import { validarImagemProduto } from '../../utils/validacaoArquivos';
 
-interface ProdutosProps {
-  codigoSantri: string;
-  descricao: string;
-  nomeExibidoSite: string;
-  ncm: string;
-  unidade: string;
-  marca: string;
-  codigoOriginal: string;
-  quantidade: number;
-  precoVenda: number;
-  precoVendaIva: number;
-  categoriaCodigo: string;
-  categoriaNome: string;
-  categoriaCaminho: string;
-  imagemUrl: string | null;
-  exibirNoSite: boolean;
-  destaqueNaHome: boolean;
-}
-
-export function Produtos(props: ProdutosProps) {
+export function Produtos(props: ProdutoCatalogo) {
   const { funcao } = useAuth();
   const isAdmin = funcao === 'ROLE_ADMIN';
+  const produtoAdministrativo = isAdmin && ehProdutoAdministrativo(props)
+    ? props
+    : null;
   const atualizarApresentacao = useAtualizarApresentacaoProduto();
   const [isEditing, setIsEditing] = useState(false);
   const [nomeExibidoSite, setNomeExibidoSite] = useState(props.nomeExibidoSite);
-  const [exibirNoSite, setExibirNoSite] = useState(props.exibirNoSite);
-  const [destaqueNaHome, setDestaqueNaHome] = useState(props.destaqueNaHome);
+  const [exibirNoSite, setExibirNoSite] = useState(
+    produtoAdministrativo?.exibirNoSite ?? true
+  );
+  const [destaqueNaHome, setDestaqueNaHome] = useState(
+    produtoAdministrativo?.destaqueNaHome ?? false
+  );
   const [imagem, setImagem] = useState<File | undefined>();
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+  const [erroImagem, setErroImagem] = useState('');
 
   useEffect(() => {
     setNomeExibidoSite(props.nomeExibidoSite);
-    setExibirNoSite(props.exibirNoSite);
-    setDestaqueNaHome(props.destaqueNaHome);
-  }, [props.destaqueNaHome, props.exibirNoSite, props.nomeExibidoSite]);
+    setExibirNoSite(produtoAdministrativo?.exibirNoSite ?? true);
+    setDestaqueNaHome(produtoAdministrativo?.destaqueNaHome ?? false);
+  }, [
+    produtoAdministrativo?.destaqueNaHome,
+    produtoAdministrativo?.exibirNoSite,
+    props.nomeExibidoSite,
+  ]);
 
   useEffect(() => {
     if (!imagem) {
@@ -54,23 +52,38 @@ export function Produtos(props: ProdutosProps) {
     return () => URL.revokeObjectURL(preview);
   }, [imagem]);
 
-  const selecionarImagem = (event: ChangeEvent<HTMLInputElement>) => {
-    setImagem(event.target.files?.[0]);
+  const selecionarImagem = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selecionada = event.target.files?.[0];
+    setErroImagem('');
+    if (!selecionada) {
+      setImagem(undefined);
+      return;
+    }
+    const erroValidacao = await validarImagemProduto(selecionada);
+    if (erroValidacao) {
+      setImagem(undefined);
+      setErroImagem(erroValidacao);
+      event.target.value = '';
+      return;
+    }
+    setImagem(selecionada);
   };
 
   const cancelar = () => {
     setNomeExibidoSite(props.nomeExibidoSite);
-    setExibirNoSite(props.exibirNoSite);
-    setDestaqueNaHome(props.destaqueNaHome);
+    setExibirNoSite(produtoAdministrativo?.exibirNoSite ?? true);
+    setDestaqueNaHome(produtoAdministrativo?.destaqueNaHome ?? false);
     setImagem(undefined);
+    setErroImagem('');
     setIsEditing(false);
     atualizarApresentacao.reset();
   };
 
   const salvar = () => {
+    if (!produtoAdministrativo) return;
     atualizarApresentacao.mutate(
       {
-        codigoSantri: props.codigoSantri,
+        codigoSantri: produtoAdministrativo.codigoSantri,
         nomeExibidoSite,
         exibirNoSite,
         destaqueNaHome,
@@ -86,7 +99,7 @@ export function Produtos(props: ProdutosProps) {
   };
 
   return (
-    <article className={`card produto-card h-100 ${!props.exibirNoSite ? 'produto-card--oculto' : ''}`}>
+    <article className={`card produto-card h-100 ${produtoAdministrativo && !produtoAdministrativo.exibirNoSite ? 'produto-card--oculto' : ''}`}>
       <div className="produto-image-shell">
         <img
           src={imagemPreview ?? resolverImagemProduto(props.imagemUrl)}
@@ -96,9 +109,9 @@ export function Produtos(props: ProdutosProps) {
             event.currentTarget.src = IMAGEM_PRODUTO_PLACEHOLDER;
           }}
         />
-        {isAdmin && (
-          <span className={`produto-status ${props.exibirNoSite ? 'produto-status--visivel' : 'produto-status--oculto'}`}>
-            {props.exibirNoSite ? 'Visível' : 'Oculto'}
+        {produtoAdministrativo && (
+          <span className={`produto-status ${produtoAdministrativo.exibirNoSite ? 'produto-status--visivel' : 'produto-status--oculto'}`}>
+            {produtoAdministrativo.exibirNoSite ? 'Visível' : 'Oculto'}
           </span>
         )}
       </div>
@@ -106,13 +119,15 @@ export function Produtos(props: ProdutosProps) {
       <div className="card-body">
         <h5 className="card-title">{props.nomeExibidoSite}</h5>
         <ul className="list-unstyled">
-          <li><strong>Preço:</strong> R$ {Number(props.precoVenda).toFixed(2)}</li>
-          <li><strong>Estoque:</strong> {props.quantidade} {props.unidade}</li>
+          <li><strong>Preço:</strong> R$ {Number(props.precoComIpi).toFixed(2)}</li>
+          {produtoAdministrativo && (
+            <li><strong>Estoque:</strong> {produtoAdministrativo.estoque} {produtoAdministrativo.unidadeVenda}</li>
+          )}
           <li><strong>Marca:</strong> {props.marca || 'Não informada'}</li>
           <li><strong>Categoria:</strong> {props.categoriaNome}</li>
         </ul>
 
-        {isAdmin && isEditing && (
+        {produtoAdministrativo && isEditing && (
           <div className="produto-admin-editor">
             <label className="produto-name-input">
               <span>Nome exibido no site</span>
@@ -124,7 +139,7 @@ export function Produtos(props: ProdutosProps) {
                 disabled={atualizarApresentacao.isPending}
               />
               <small>
-                Descrição no Santri: {props.descricao}. Deixe vazio para voltar ao nome do Santri.
+                Nome no Santri: {produtoAdministrativo.nome}. Deixe vazio para voltar ao nome do Santri.
               </small>
             </label>
 
@@ -137,6 +152,7 @@ export function Produtos(props: ProdutosProps) {
                 disabled={atualizarApresentacao.isPending}
               />
               <small>JPG, PNG ou WEBP, até 5 MB.</small>
+              {erroImagem && <small className="produto-admin-error">{erroImagem}</small>}
             </label>
 
             <label className="produto-visibility">
@@ -184,7 +200,7 @@ export function Produtos(props: ProdutosProps) {
           </div>
         )}
 
-        {isAdmin && !isEditing && (
+        {produtoAdministrativo && !isEditing && (
           <button
             className="btn btn-primary"
             type="button"

@@ -1,31 +1,45 @@
 import { useEffect, useState } from 'react';
-import { useDadosProdutosMutate } from '../../hooks/useDadosProdutosMutate';
-import { DadosProdutos } from '../../interface/DadosProdutos';
-import { useAuth } from '../../context/AuthProvider';
+import {
+    ProdutoCadastro,
+    useDadosProdutosMutate,
+} from '../../hooks/useDadosProdutosMutate';
+import { useAuth } from '../../context/AuthContext';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './cadastrarCliente.css';
 
-interface InputProps {
+interface TextInputProps {
     label: string;
-    value: string | number;
-    updateValue(value: any): void;
-    type?: string;
+    value: string;
+    updateValue(value: string): void;
+    type?: 'text';
 }
+
+interface NumberInputProps {
+    label: string;
+    value: number;
+    updateValue(value: number): void;
+    type: 'number';
+}
+
+type InputProps = TextInputProps | NumberInputProps;
 
 interface ModalProps {
     closeModal(): void;
 }
 
-const Input = ({ label, value, updateValue, type = 'text' }: InputProps) => (
+const Input = (props: InputProps) => (
     <div className="mb-3">
-        <label className="form-label">{label}</label>
+        <label className="form-label">{props.label}</label>
         <input
             className="form-control"
-            type={type}
-            value={value}
+            type={props.type ?? 'text'}
+            value={props.value}
             onChange={(event) => {
-                const newValue = type === 'number' ? event.target.valueAsNumber : event.target.value;
-                updateValue(newValue);
+                if (props.type === 'number') {
+                    props.updateValue(event.target.valueAsNumber);
+                } else {
+                    props.updateValue(event.target.value);
+                }
             }}
         />
     </div>
@@ -56,7 +70,7 @@ export function CadastrarProdutos({ closeModal }: ModalProps) {
     }
 
     const submit = () => {
-        const dadosProdutos: DadosProdutos = {
+        const dadosProdutos: ProdutoCadastro = {
             codigoSantri,
             descricao,
             nomeExibidoSite: descricao,
@@ -68,11 +82,8 @@ export function CadastrarProdutos({ closeModal }: ModalProps) {
             precoVenda,
             precoVendaIva,
             categoriaCodigo,
-            categoriaNome: '',
-            categoriaCaminho: '',
             imagemUrl,
             exibirNoSite: true,
-            destaqueNaHome: false,
         };
 
         mutate(dadosProdutos);

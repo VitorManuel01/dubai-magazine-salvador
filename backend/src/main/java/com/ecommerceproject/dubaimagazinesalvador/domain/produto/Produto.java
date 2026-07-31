@@ -1,6 +1,8 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
@@ -12,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -32,7 +35,7 @@ public class Produto {
     private String codigoSantri;
 
     @Column(nullable = false, length = 500)
-    private String descricao;
+    private String nome;
 
     @Column(name = "nome_exibido_site", nullable = false, length = 500)
     private String nomeExibidoSite;
@@ -40,22 +43,87 @@ public class Produto {
     @Column(length = 20)
     private String ncm;
 
-    @Column(length = 20)
-    private String unidade;
+    @Column(name = "nome_compra", length = 500)
+    private String nomeCompra;
 
+    @Column(length = 255)
+    private String fabricante;
+
+    @Column(length = 255)
     private String marca;
 
-    @Column(name = "codigo_original")
+    @Column(name = "ativo_santri", nullable = false)
+    private boolean ativoSantri;
+
+    @Column(name = "unidade_venda", length = 20)
+    private String unidadeVenda;
+
+    @Column(name = "unidade_compra", length = 20)
+    private String unidadeCompra;
+
+    @Column(name = "data_cadastro")
+    private LocalDate dataCadastro;
+
+    @Column(name = "codigo_original", length = 255)
     private String codigoOriginal;
 
+    @Column(name = "codigo_barras", length = 32)
+    private String codigoBarras;
+
+    @Column(name = "bloqueado_para_compras", nullable = false)
+    private boolean bloqueadoParaCompras;
+
     @Column(nullable = false, precision = 15, scale = 3)
-    private BigDecimal quantidade;
+    private BigDecimal estoque;
 
-    @Column(name = "preco_venda", nullable = false, precision = 15, scale = 2)
-    private BigDecimal precoVenda;
+    @Column(name = "preco_sem_ipi", nullable = false, precision = 15, scale = 2)
+    private BigDecimal precoSemIpi;
 
-    @Column(name = "preco_venda_iva", nullable = false, precision = 15, scale = 2)
-    private BigDecimal precoVendaIva;
+    @Column(name = "percentual_ipi_entrada", precision = 7, scale = 4)
+    private BigDecimal percentualIpiEntrada;
+
+    @Column(name = "peso_unidade", precision = 18, scale = 6)
+    private BigDecimal pesoUnidade;
+
+    @Column(name = "altura_unidade", precision = 18, scale = 6)
+    private BigDecimal alturaUnidade;
+
+    @Column(name = "largura_unidade", precision = 18, scale = 6)
+    private BigDecimal larguraUnidade;
+
+    @Column(name = "comprimento_unidade", precision = 18, scale = 6)
+    private BigDecimal comprimentoUnidade;
+
+    @Column(name = "volume_unidade_m3", precision = 18, scale = 9)
+    private BigDecimal volumeUnidadeM3;
+
+    @Column(name = "volume_litros", precision = 18, scale = 6)
+    private BigDecimal volumeLitros;
+
+    @Column(name = "peso_caixa", precision = 18, scale = 6)
+    private BigDecimal pesoCaixa;
+
+    @Column(name = "altura_caixa", precision = 18, scale = 6)
+    private BigDecimal alturaCaixa;
+
+    @Column(name = "largura_caixa", precision = 18, scale = 6)
+    private BigDecimal larguraCaixa;
+
+    @Column(name = "comprimento_caixa", precision = 18, scale = 6)
+    private BigDecimal comprimentoCaixa;
+
+    @Column(length = 255)
+    private String origem;
+
+    private Boolean industrializado;
+
+    private Boolean insumo;
+
+    @Column(name = "percentual_maximo_aproveitamento_ipi", precision = 7, scale = 4)
+    private BigDecimal percentualMaximoAproveitamentoIpi;
+
+    @Column(name = "numero_fci", length = 64)
+    private String numeroFci;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "categoria_codigo", nullable = false)
@@ -70,12 +138,35 @@ public class Produto {
     @Column(name = "destaque_na_home", nullable = false)
     private boolean destaqueNaHome;
 
+    @Column(name = "disponivel_ultima_importacao", nullable = false)
+    private boolean disponivelUltimaImportacao;
+
     @Column(name = "ultima_importacao_em")
     private LocalDateTime ultimaImportacaoEm;
 
     public Produto(ProdutoRequestDTO data, Categoria categoria) {
         this.codigoSantri = data.codigoSantri();
-        atualizar(data, categoria);
+        this.nome = data.descricao();
+        this.nomeExibidoSite = normalizarNomeExibidoSite(
+                data.nomeExibidoSite(),
+                data.descricao()
+        );
+        this.ncm = data.ncm();
+        this.nomeCompra = data.descricao();
+        this.marca = data.marca();
+        this.ativoSantri = true;
+        this.unidadeVenda = data.unidade();
+        this.unidadeCompra = data.unidade();
+        this.codigoOriginal = data.codigoOriginal();
+        this.bloqueadoParaCompras = false;
+        this.estoque = valorOuZero(data.quantidade());
+        this.precoSemIpi = valorOuZero(data.precoVenda());
+        this.percentualIpiEntrada = BigDecimal.ZERO;
+        this.categoria = categoria;
+        this.imagemUrl = data.imagemUrl();
+        this.exibirNoSite = data.exibirNoSite();
+        this.destaqueNaHome = false;
+        this.disponivelUltimaImportacao = true;
     }
 
     public Produto(ProdutoImportacaoDTO data, Categoria categoria, LocalDateTime importadoEm) {
@@ -86,24 +177,6 @@ public class Produto {
         atualizarDadosImportados(data, categoria, importadoEm);
     }
 
-    public void atualizar(ProdutoRequestDTO data, Categoria categoria) {
-        this.descricao = data.descricao();
-        this.nomeExibidoSite = normalizarNomeExibidoSite(
-                data.nomeExibidoSite(),
-                data.descricao()
-        );
-        this.ncm = data.ncm();
-        this.unidade = data.unidade();
-        this.marca = data.marca();
-        this.codigoOriginal = data.codigoOriginal();
-        this.quantidade = data.quantidade();
-        this.precoVenda = data.precoVenda();
-        this.precoVendaIva = valorOuZero(data.precoVendaIva());
-        this.categoria = categoria;
-        this.imagemUrl = data.imagemUrl();
-        this.exibirNoSite = data.exibirNoSite();
-    }
-
     public void atualizarDadosImportados(
             ProdutoImportacaoDTO data,
             Categoria categoria,
@@ -111,18 +184,41 @@ public class Produto {
     ) {
         if (nomeExibidoSite == null
                 || nomeExibidoSite.isBlank()
-                || nomeExibidoSite.equals(descricao)) {
-            this.nomeExibidoSite = data.descricao();
+                || nomeExibidoSite.equals(nome)) {
+            this.nomeExibidoSite = data.nome();
         }
-        this.descricao = data.descricao();
+        this.nome = data.nome();
         this.ncm = data.ncm();
-        this.unidade = data.unidade();
+        this.nomeCompra = data.nomeCompra();
+        this.fabricante = data.fabricante();
         this.marca = data.marca();
+        this.ativoSantri = data.ativoSantri();
+        this.unidadeVenda = data.unidadeVenda();
+        this.unidadeCompra = data.unidadeCompra();
+        this.dataCadastro = data.dataCadastro();
         this.codigoOriginal = data.codigoOriginal();
-        this.quantidade = data.quantidade();
-        this.precoVenda = data.precoVenda();
-        this.precoVendaIva = valorOuZero(data.precoVendaIva());
+        this.codigoBarras = data.codigoBarras();
+        this.bloqueadoParaCompras = data.bloqueadoParaCompras();
+        this.estoque = valorOuZero(data.estoque());
+        this.precoSemIpi = valorOuZero(data.precoSemIpi());
+        this.percentualIpiEntrada = data.percentualIpiEntrada();
+        this.pesoUnidade = data.pesoUnidade();
+        this.alturaUnidade = data.alturaUnidade();
+        this.larguraUnidade = data.larguraUnidade();
+        this.comprimentoUnidade = data.comprimentoUnidade();
+        this.volumeUnidadeM3 = data.volumeUnidadeM3();
+        this.volumeLitros = data.volumeLitros();
+        this.pesoCaixa = data.pesoCaixa();
+        this.alturaCaixa = data.alturaCaixa();
+        this.larguraCaixa = data.larguraCaixa();
+        this.comprimentoCaixa = data.comprimentoCaixa();
+        this.origem = data.origem();
+        this.industrializado = data.industrializado();
+        this.insumo = data.insumo();
+        this.percentualMaximoAproveitamentoIpi = data.percentualMaximoAproveitamentoIpi();
+        this.numeroFci = data.numeroFci();
         this.categoria = categoria;
+        this.disponivelUltimaImportacao = true;
         this.ultimaImportacaoEm = importadoEm;
     }
 
@@ -132,10 +228,7 @@ public class Produto {
             boolean destaqueNaHome,
             String novaImagemUrl
     ) {
-        this.nomeExibidoSite = normalizarNomeExibidoSite(
-                nomeExibidoSite,
-                descricao
-        );
+        this.nomeExibidoSite = normalizarNomeExibidoSite(nomeExibidoSite, nome);
         this.exibirNoSite = exibirNoSite;
         this.destaqueNaHome = destaqueNaHome;
         if (novaImagemUrl != null && !novaImagemUrl.isBlank()) {
@@ -143,14 +236,24 @@ public class Produto {
         }
     }
 
+    @Transient
+    public BigDecimal getPrecoComIpi() {
+        BigDecimal fatorIpi = BigDecimal.ONE.add(
+                valorOuZero(percentualIpiEntrada).movePointLeft(2)
+        );
+        return valorOuZero(precoSemIpi)
+                .multiply(fatorIpi)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
     private BigDecimal valorOuZero(BigDecimal valor) {
         return valor == null ? BigDecimal.ZERO : valor;
     }
 
-    private String normalizarNomeExibidoSite(String nome, String nomePadrao) {
-        if (nome == null || nome.isBlank()) {
+    private String normalizarNomeExibidoSite(String nomeInformado, String nomePadrao) {
+        if (nomeInformado == null || nomeInformado.isBlank()) {
             return nomePadrao;
         }
-        return nome.trim().replaceAll("\\s+", " ");
+        return nomeInformado.trim().replaceAll("\\s+", " ");
     }
 }

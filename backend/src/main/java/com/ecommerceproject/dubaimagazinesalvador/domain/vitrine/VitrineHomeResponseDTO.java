@@ -2,7 +2,7 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.vitrine;
 
 import java.util.List;
 
-import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogoPublicoDTO;
 
 public record VitrineHomeResponseDTO(
         Long id,
@@ -13,11 +13,11 @@ public record VitrineHomeResponseDTO(
         String descricao,
         int ordem,
         boolean ativo,
-        List<ProdutoResponseDTO> produtos
+        List<ProdutoCatalogoPublicoDTO> produtos
 ) {
     public VitrineHomeResponseDTO(
             VitrineHome vitrine,
-            List<ProdutoResponseDTO> produtos
+            List<ProdutoCatalogoPublicoDTO> produtos
     ) {
         this(
                 vitrine.getId(),

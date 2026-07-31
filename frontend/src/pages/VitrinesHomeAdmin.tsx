@@ -88,7 +88,7 @@ function VitrinesHomeAdmin() {
         </div>
         <div className="vitrine-admin-heading__actions">
           <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">
-            Importar inventário
+            Importar relação de produtos
           </Link>
           <Link className="btn btn-outline-secondary" to="/">
             Ver página inicial

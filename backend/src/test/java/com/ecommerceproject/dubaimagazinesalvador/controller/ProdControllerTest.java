@@ -135,11 +135,11 @@ class ProdControllerTest {
                 any(Pageable.class)
         )).thenReturn(new PageImpl<>(produtos));
 
-        mockMvc.perform(get("/produto")
+        mockMvc.perform(get("/admin/produtos")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].descricao").value("Produto 1"))
-                .andExpect(jsonPath("$.content[1].descricao").value("Produto 2"));
+                .andExpect(jsonPath("$.content[0].nome").value("Produto 1"))
+                .andExpect(jsonPath("$.content[1].nome").value("Produto 2"));
     }
 
     @Test
@@ -155,11 +155,11 @@ class ProdControllerTest {
                 any(Pageable.class)
         )).thenReturn(new PageImpl<>(produtos));
 
-        mockMvc.perform(get("/produto")
+        mockMvc.perform(get("/admin/produtos")
                         .param("categoriaCodigo", "001")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].descricao").value("Produto 1"));
+                .andExpect(jsonPath("$.content[0].nome").value("Produto 1"));
 
         verify(produtoRepository).findCatalogoPorCategoria(
                 eq("001"),
@@ -183,10 +183,10 @@ class ProdControllerTest {
                 any(Pageable.class)
         )).thenReturn(new PageImpl<>(produtos));
 
-        mockMvc.perform(get("/produto")
+        mockMvc.perform(get("/admin/produtos")
                         .param("busca", "  caderno  "))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].descricao").value("Caderno escolar"));
+                .andExpect(jsonPath("$.content[0].nome").value("Caderno escolar"));
 
         verify(produtoRepository).findCatalogoPorCategoria(
                 isNull(),
@@ -199,19 +199,37 @@ class ProdControllerTest {
 
     @Test
     @WithMockUser(roles = "CLIENTE")
-    @DisplayName("Deve omitir produtos não publicados para usuários comuns")
+    @DisplayName("Deve limitar os dados devolvidos pelo catálogo público")
     void getAllPublico() throws Exception {
+        Produto produto = criarProduto("2.672", "Produto público");
+        produto.atualizarApresentacao(
+                "Produto público",
+                true,
+                false,
+                "/uploads/produtos/2_672-7abe08ab-cebd-4dd8-a6a9-6252faa1d9f8.webp"
+        );
         when(produtoRepository.findCatalogoPorCategoria(
                 isNull(),
                 isNull(),
                 eq(false),
                 eq(false),
                 any(Pageable.class)
-        )).thenReturn(new PageImpl<>(List.of()));
+        )).thenReturn(new PageImpl<>(List.of(produto)));
 
         mockMvc.perform(get("/produto"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isEmpty());
+                .andExpect(jsonPath("$.content[0].nomeExibidoSite").value("Produto público"))
+                .andExpect(jsonPath("$.content[0].precoComIpi").value(9.99))
+                .andExpect(jsonPath("$.content[0].imagemUrl")
+                        .value("/catalogo/imagens/7abe08ab-cebd-4dd8-a6a9-6252faa1d9f8.webp"))
+                .andExpect(jsonPath("$.content[0].codigoSantri").doesNotExist())
+                .andExpect(jsonPath("$.content[0].codigoBarras").doesNotExist())
+                .andExpect(jsonPath("$.content[0].codigoOriginal").doesNotExist())
+                .andExpect(jsonPath("$.content[0].estoque").doesNotExist())
+                .andExpect(jsonPath("$.content[0].precoSemIpi").doesNotExist())
+                .andExpect(jsonPath("$.content[0].ncm").doesNotExist())
+                .andExpect(jsonPath("$.content[0].nomeCompra").doesNotExist())
+                .andExpect(jsonPath("$.content[0].ultimaImportacaoEm").doesNotExist());
 
         verify(produtoRepository).findCatalogoPorCategoria(
                 isNull(),
@@ -237,7 +255,8 @@ class ProdControllerTest {
 
         mockMvc.perform(get("/produto").param("somenteDestaques", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].descricao").value("Produto selecionado"));
+                .andExpect(jsonPath("$.content[0].nomeExibidoSite").value("Produto selecionado"))
+                .andExpect(jsonPath("$.content[0].codigoSantri").doesNotExist());
 
         verify(produtoRepository).findCatalogoPorCategoria(
                 isNull(),
