@@ -1,5 +1,6 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +49,10 @@ public abstract class Usuario implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private Role funcao;
+    @Column(name = "tentativas_login_falhas", nullable = false)
+    private int tentativasLoginFalhas;
+    @Column(name = "bloqueado_ate")
+    private Instant bloqueadoAte;
     
     public String getLogin() {
         return login;
@@ -110,7 +115,7 @@ public abstract class Usuario implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true; // Implementação básica
+        return bloqueadoAte == null || !Instant.now().isBefore(bloqueadoAte);
     }
 
     @Override

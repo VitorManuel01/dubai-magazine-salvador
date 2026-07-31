@@ -183,7 +183,7 @@ const Home: React.FC = () => {
               <div className="catalog-highlight-products">
                 <article
                   className="catalog-highlight-product"
-                  key={`${vitrine.id}-${produtoVitrine.codigoSantri}`}
+                  key={`${vitrine.id}-${produtoVitrine.categoriaCodigo}-${produtoVitrine.nomeExibidoSite}`}
                 >
                   <img
                     src={resolverImagemProduto(produtoVitrine.imagemUrl)}
@@ -194,7 +194,7 @@ const Home: React.FC = () => {
                   />
                   <div>
                     <h2>{produtoVitrine.nomeExibidoSite}</h2>
-                    <p>R$ {produtoVitrine.precoVenda.toFixed(2)}</p>
+                    <p>R$ {produtoVitrine.precoComIpi.toFixed(2)}</p>
                   </div>
                 </article>
               </div>
@@ -228,8 +228,11 @@ const Home: React.FC = () => {
           {!carregandoSelecionados && !erroSelecionados && featuredProducts.length === 0 && (
             <p className="home-selection-status">A seleção da loja está sendo preparada.</p>
           )}
-          {featuredProducts.map((produto) => (
-            <article className="mini-product-card" key={produto.codigoSantri}>
+          {featuredProducts.map((produto, index) => (
+            <article
+              className="mini-product-card"
+              key={`${produto.categoriaCodigo}-${produto.nomeExibidoSite}-${index}`}
+            >
               <img
                 src={resolverImagemProduto(produto.imagemUrl)}
                 alt={produto.nomeExibidoSite}
@@ -239,9 +242,7 @@ const Home: React.FC = () => {
               />
               <div className="mini-product-card__body">
                 <h3>{produto.nomeExibidoSite}</h3>
-                <p>R$ {produto.precoVenda.toFixed(2)}</p>
-                <small>{produto.quantidade} em estoque</small>
-
+                <p>R$ {produto.precoComIpi.toFixed(2)}</p>
               </div>
             </article>
           ))}

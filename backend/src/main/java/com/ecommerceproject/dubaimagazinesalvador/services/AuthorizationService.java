@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Usuario;
+import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Role;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.AdministradorRespository; // Importar
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository; // Você já tem
 
@@ -33,19 +34,16 @@ public class AuthorizationService implements UserDetailsService {
             return admin;
         }
 
-        // 2. Se não for admin, tenta encontrar como Usuário comum (por login ou email)
-           // Busca o usuário pelo email
-           Optional<Usuario> usuarioByEmail = usuarioRepository.findByEmail(username);
-       
-           // Busca o usuário pelo login
-           Optional<Usuario> usuarioByLogin = usuarioRepository.findByLogin(username);
-       
-           // Verifica se algum dos dois retornou um usuário e retorna o primeiro encontrado
-           if (usuarioByEmail.isPresent()) {
-               return usuarioByEmail.get();
-           } else if (usuarioByLogin.isPresent()) {
-               return usuarioByLogin.get();
-           }
+        // O catálogo não possui mais autenticação de clientes. Somente funcionários
+        // podem passar pela busca genérica de usuários.
+        Optional<Usuario> funcionario = usuarioRepository
+                .findFirstByEmailIgnoreCase(username)
+                .or(() -> usuarioRepository.findFirstByLoginIgnoreCase(username))
+                .filter(usuario -> usuario.getFuncao() == Role.ROLE_FUNCIONARIO);
+
+        if (funcionario.isPresent()) {
+            return funcionario.get();
+        }
 
         // 3. Se não encontrou em nenhum dos repositórios, lança a exceção.
         throw new UsernameNotFoundException("Usuário '" + username + "' não encontrado em nenhuma base de dados.");

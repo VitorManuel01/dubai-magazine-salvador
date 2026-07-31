@@ -15,7 +15,11 @@ import Login from './components/login/Login';
 import Home from './pages/Home';
 import ImportacaoProdutos from './pages/ImportacaoProdutos';
 import VitrinesHomeAdmin from './pages/VitrinesHomeAdmin';
-import { useAuth } from './context/AuthProvider';
+import VitrineLoja from './pages/VitrineLoja';
+import VitrineLojaAdmin from './pages/VitrineLojaAdmin';
+import MinhaConta from './pages/MinhaConta';
+import FuncionariosAdmin from './pages/FuncionariosAdmin';
+import { useAuth } from './context/AuthContext';
 import { useCategoriasPrincipais } from './hooks/useCategoriasPrincipais';
 
 
@@ -23,13 +27,42 @@ function RotaAdmin({ children }: { children: ReactNode }) {
   const { isAuthenticated, funcao } = useAuth();
 
   if (!isAuthenticated || funcao !== 'ROLE_ADMIN') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={isAuthenticated ? '/vitrine-loja' : '/admin'} replace />;
   }
 
   return children;
 }
 
+function RotaVitrineInterna({ children }: { children: ReactNode }) {
+  const { isAuthenticated, funcao } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/admin" replace />;
+  }
+  if (funcao !== 'ROLE_ADMIN' && funcao !== 'ROLE_FUNCIONARIO') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+function AcessoInterno() {
+  const { isAuthenticated, funcao } = useAuth();
+
+  if (isAuthenticated) {
+    return (
+      <Navigate
+        to={funcao === 'ROLE_ADMIN' ? '/minha-conta' : '/vitrine-loja'}
+        replace
+      />
+    );
+  }
+
+  return <Login />;
+}
+
 function BarraBusca() {
+  const { funcao } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [termo, setTermo] = useState('');
@@ -65,7 +98,9 @@ function BarraBusca() {
     <form className="search-bar" role="search" onSubmit={pesquisar}>
       <input
         type="search"
-        placeholder="Buscar por produto, código ou marca"
+        placeholder={funcao === 'ROLE_ADMIN'
+          ? 'Buscar por produto, código ou marca'
+          : 'Buscar por produto ou marca'}
         aria-label="Buscar produtos"
         value={termo}
         onChange={(event) => setTermo(event.target.value)}
@@ -77,14 +112,54 @@ function BarraBusca() {
   );
 }
 
-function App() {
+function ConteudoAplicacao() {
   const { isAuthenticated, funcao, logout } = useAuth();
+  const location = useLocation();
   const { data: categoriasPrincipais = [], isLoading: carregandoCategorias } =
     useCategoriasPrincipais(funcao || 'publico');
+  const areaVitrine = location.pathname === '/vitrine-loja'
+    || location.pathname.startsWith('/admin/vitrine-loja');
+  const areaAcesso = location.pathname === '/admin';
 
   return (
-    <Router>
-      <div className="site-shell">
+      <div className={`site-shell${areaVitrine ? ' site-shell--internal' : ''}`}>
+        {areaAcesso ? null : areaVitrine ? (
+          <header className="internal-header">
+            <div className="internal-header__inner">
+              <Link className="brand-area" to="/vitrine-loja" aria-label="Dubai Magazine">
+                <span className="brand-name">Dubai</span>
+                <span className="brand-subtitle">MAGAZINE</span>
+              </Link>
+              <div className="internal-header__title">
+                <span>Ambiente interno</span>
+                <strong>Vitrine da loja física</strong>
+              </div>
+              <nav className="internal-header__actions" aria-label="Navegação interna">
+                <Link to="/vitrine-loja">
+                  <i className="bi bi-display" />
+                  Consultar vitrine
+                </Link>
+                {funcao === 'ROLE_ADMIN' && (
+                  <>
+                    <Link to="/minha-conta">
+                      <i className="bi bi-grid" />
+                      Minha conta
+                    </Link>
+                    <Link to="/admin/vitrine-loja">
+                      <i className="bi bi-sliders" />
+                      Gerenciar
+                    </Link>
+                  </>
+                )}
+                <button type="button" onClick={logout}>
+                  <i className="bi bi-box-arrow-right" />
+                  Sair
+                </button>
+              </nav>
+            </div>
+          </header>
+        ) : (
+          <>
         <div className="top-strip">
           <div className="top-strip__inner">
             <div className="top-strip__group">
@@ -118,13 +193,21 @@ function App() {
                 <>
                   <Link
                     className="utility-link utility-link--account"
-                    to={funcao === 'ROLE_ADMIN' ? '/admin/importacao-produtos' : '/produtos'}
+                    to={funcao === 'ROLE_ADMIN'
+                      ? '/minha-conta'
+                      : '/vitrine-loja'}
                     aria-label="Acessar minha conta"
                   >
                     <i className="bi bi-person-check-fill" />
                     <span>
                       <strong>Minha conta</strong>
-                      <small>{funcao === 'ROLE_ADMIN' ? 'Administrador' : 'Usuário conectado'}</small>
+                      <small>
+                        {funcao === 'ROLE_ADMIN'
+                          ? 'Administrador'
+                          : funcao === 'ROLE_FUNCIONARIO'
+                            ? 'Funcionário'
+                            : 'Usuário conectado'}
+                      </small>
                     </span>
                   </Link>
                   <button
@@ -139,22 +222,9 @@ function App() {
                   </button>
                 </>
               ) : (
-                <>
-                  <Link
-                    className="utility-link utility-link--account"
-                    to="/login"
-                    aria-label="Minha conta e login"
-                  >
-                    <i className="bi bi-person-circle" />
-                    <span>
-                      <strong>Minha conta</strong>
-                      <small>Cadastre-se | Fazer login</small>
-                    </span>
-                  </Link>
-                  <button className="utility-button" type="button" aria-label="Favoritos">
-                    <i className="bi bi-heart" />
-                  </button>
-                </>
+                <button className="utility-button" type="button" aria-label="Favoritos">
+                  <i className="bi bi-heart" />
+                </button>
               )}
 
             </div>
@@ -181,6 +251,8 @@ function App() {
             </div>
           </nav>
         </header>
+          </>
+        )}
 
 
         <main className="page-main">
@@ -190,7 +262,24 @@ function App() {
             <Route path="/produtos" element={<ProdutosList />} />
             {/* manter /inicio como alias para a home; redireciona para / */}
             <Route path="/inicio" element={<Navigate to="/" replace />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/admin" element={<AcessoInterno />} />
+            <Route path="/login" element={<Navigate to="/admin" replace />} />
+            <Route
+              path="/minha-conta"
+              element={(
+                <RotaAdmin>
+                  <MinhaConta />
+                </RotaAdmin>
+              )}
+            />
+            <Route
+              path="/admin/funcionarios"
+              element={(
+                <RotaAdmin>
+                  <FuncionariosAdmin />
+                </RotaAdmin>
+              )}
+            />
             <Route
               path="/admin/importacao-produtos"
               element={(
@@ -207,9 +296,26 @@ function App() {
                 </RotaAdmin>
               )}
             />
+            <Route
+              path="/vitrine-loja"
+              element={(
+                <RotaVitrineInterna>
+                  <VitrineLoja />
+                </RotaVitrineInterna>
+              )}
+            />
+            <Route
+              path="/admin/vitrine-loja"
+              element={(
+                <RotaAdmin>
+                  <VitrineLojaAdmin />
+                </RotaAdmin>
+              )}
+            />
           </Routes>
         </main>
 
+        {!areaVitrine && !areaAcesso && (
         <footer className="site-footer">
           <div className="site-footer__inner">
             <div className="footer-top">
@@ -262,10 +368,7 @@ function App() {
               <div className="footer-col">
                 <h4>Institucional</h4>
                 <div className="footer-links">
-                  <Link className="footer-link" to="/login">Área do cliente</Link>
-                  <Link className="footer-link" to="/login">Política de Privacidade</Link>
-                  <Link className="footer-link" to="/login">Trocas e Devoluções</Link>
-                  <Link className="footer-link" to="/login">Contato</Link>
+                  <Link className="footer-link" to="/produtos">Catálogo de produtos</Link>
                 </div>
               </div>
 
@@ -279,7 +382,15 @@ function App() {
             </div>
           </div>
         </footer>
+        )}
       </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <ConteudoAplicacao />
     </Router>
   );
 }

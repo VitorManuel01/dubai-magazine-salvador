@@ -3,7 +3,7 @@ import axios from 'axios';
 import { DadosCategoria } from '../interface/DadosCategoria';
 
 const buscarCategorias = async (): Promise<DadosCategoria[]> => {
-  const response = await axios.get<DadosCategoria[]>('/categoria', {
+  const response = await axios.get<DadosCategoria[]>('/admin/categorias', {
     params: { somenteVisiveis: false },
   });
   return [...response.data].sort((a, b) => a.caminho.localeCompare(b.caminho, 'pt-BR'));

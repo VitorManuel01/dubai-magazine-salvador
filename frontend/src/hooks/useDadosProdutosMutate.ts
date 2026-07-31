@@ -1,19 +1,24 @@
-import axios, { AxiosPromise } from "axios"
-import { DadosProdutos } from "../interface/DadosProdutos";
+import axios from "axios"
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+export interface ProdutoCadastro {
+    codigoSantri: string;
+    descricao: string;
+    nomeExibidoSite: string;
+    ncm: string;
+    unidade: string;
+    marca: string;
+    codigoOriginal: string;
+    quantidade: number;
+    precoVenda: number;
+    precoVendaIva: number;
+    categoriaCodigo: string;
+    imagemUrl: string;
+    exibirNoSite: boolean;
+}
 
-
-const postData = async (data: DadosProdutos): AxiosPromise<any> => {
-    // Obtenha o token do armazenamento local ou do contexto
-    const token = localStorage.getItem('token'); // ou use AuthContext para pegar o token
-
-    const response = axios.post("/produto", data, {
-        headers: {
-            Authorization: `Bearer ${token}`, // Adiciona o token no cabeçalho
-        },
-    });
-    return response;
+const postData = async (data: ProdutoCadastro): Promise<void> => {
+    await axios.post("/produto", data);
 }
 
 
@@ -23,7 +28,7 @@ export function useDadosProdutosMutate(){
         mutationFn: postData,
         retry: 2,
         onSuccess: () =>{
-            queryClient.invalidateQueries( ['dados-produto'] as any)
+            queryClient.invalidateQueries({ queryKey: ['dados-produto'] })
         }
     })
 

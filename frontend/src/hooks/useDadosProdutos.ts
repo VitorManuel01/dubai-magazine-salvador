@@ -1,5 +1,5 @@
 import axios from "axios"
-import { DadosProdutos } from "../interface/DadosProdutos"
+import { ProdutoCatalogo } from "../interface/DadosProdutos"
 import { PaginaProdutos } from "../interface/PaginaProdutos";
 import { useQuery } from "@tanstack/react-query";
 
@@ -10,16 +10,20 @@ const fetchData = async (
     pagina = 0,
     busca?: string,
     somenteDestaques = false,
+    administracao = false,
 ): Promise<PaginaProdutos> => {
-    const response = await axios.get<PaginaProdutos>("/produto", {
-        params: {
-            ...(categoriaCodigo ? { categoriaCodigo } : {}),
-            ...(busca ? { busca } : {}),
-            ...(somenteDestaques ? { somenteDestaques: true } : {}),
-            pagina,
-            tamanho: 24,
+    const response = await axios.get<PaginaProdutos>(
+        administracao ? "/admin/produtos" : "/produto",
+        {
+            params: {
+                ...(categoriaCodigo ? { categoriaCodigo } : {}),
+                ...(busca ? { busca } : {}),
+                ...(somenteDestaques ? { somenteDestaques: true } : {}),
+                pagina,
+                tamanho: 24,
+            },
         },
-    });
+    );
     return response.data;
 }
 
@@ -31,8 +35,15 @@ export function useDadosProdutos(
     busca?: string,
     somenteDestaques = false,
 ){
+    const administracao = perfil === 'ROLE_ADMIN';
     const query = useQuery({
-        queryFn: () => fetchData(categoriaCodigo, pagina, busca, somenteDestaques),
+        queryFn: () => fetchData(
+            categoriaCodigo,
+            pagina,
+            busca,
+            somenteDestaques,
+            administracao,
+        ),
         queryKey: [
             'dados-produto',
             categoriaCodigo ?? 'todos',
@@ -46,7 +57,7 @@ export function useDadosProdutos(
 
     return {
         ...query,
-        data: query.data?.content ?? ([] as DadosProdutos[]),
+        data: query.data?.content ?? ([] as ProdutoCatalogo[]),
         paginacao: query.data,
     };
 }

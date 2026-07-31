@@ -41,7 +41,7 @@ public class ApresentacaoProdutoService {
         String nomeNormalizado = normalizarNomeExibidoSite(nomeExibidoSite, produto);
         String novaImagemUrl = imagem == null || imagem.isEmpty()
                 ? null
-                : armazenamentoImagem.salvar(codigoSantri, imagem);
+                : armazenamentoImagem.salvar(imagem);
         produto.atualizarApresentacao(
                 nomeNormalizado,
                 exibirNoSite,
@@ -63,6 +63,6 @@ public class ApresentacaoProdutoService {
                     "O nome exibido no site deve possuir no máximo 500 caracteres."
             );
         }
-        return nomeNormalizado.isBlank() ? produto.getDescricao() : nomeNormalizado;
+        return nomeNormalizado.isBlank() ? produto.getNome() : nomeNormalizado;
     }
 }

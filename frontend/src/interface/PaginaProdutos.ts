@@ -1,7 +1,7 @@
-import { DadosProdutos } from './DadosProdutos';
+import { ProdutoCatalogo } from './DadosProdutos';
 
 export interface PaginaProdutos {
-  content: DadosProdutos[];
+  content: ProdutoCatalogo[];
   totalElements: number;
   totalPages: number;
   size: number;

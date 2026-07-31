@@ -48,18 +48,4 @@ public class Cliente extends Usuario {
     this.telefone = telefone;
 }
 
-    public Cliente(ClienteRequestDTO data) {
-        super();
-        this.setEmail(data.email());
-        this.setLogin(data.login());
-        this.setSenha(data.senha());
-        this.nomeCliente = data.nomeCliente();
-        this.CPF = data.CPF();
-        this.sexo = data.sexo();
-        this.dataNascimento = data.dataNascimento();
-        this.CEP = data.CEP();
-        this.bairro = data.bairro();
-        this.telefone = data.telefone();
-    }
-    
 }

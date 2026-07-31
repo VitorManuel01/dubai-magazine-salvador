@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Produtos } from '../components/produtos/produtos';
 import { useDadosProdutos } from '../hooks/useDadosProdutos';
-import { useAuth } from '../context/AuthProvider';
+import { useAuth } from '../context/AuthContext';
 import { useCategoriasPrincipais } from '../hooks/useCategoriasPrincipais';
 import { useSubcategorias } from '../hooks/useSubcategorias';
 import '../styles/ProdutoList.css';
@@ -62,15 +62,15 @@ function ProdutoList() {
 
   const filteredProducts = useMemo(() => {
     const result = data.filter((produto) => {
-      const price = getPrice(produto.precoVenda);
+      const price = getPrice(produto.precoComIpi);
       const matchesMin = appliedPriceRange.min === null || price >= appliedPriceRange.min;
       const matchesMax = appliedPriceRange.max === null || price <= appliedPriceRange.max;
       return matchesMin && matchesMax;
     });
 
     return [...result].sort((left, right) => {
-      const leftPrice = getPrice(left.precoVenda);
-      const rightPrice = getPrice(right.precoVenda);
+      const leftPrice = getPrice(left.precoComIpi);
+      const rightPrice = getPrice(right.precoComIpi);
 
       switch (sortBy) {
         case 'price-asc':
@@ -78,7 +78,8 @@ function ProdutoList() {
         case 'price-desc':
           return rightPrice - leftPrice;
         case 'stock-desc':
-          return right.quantidade - left.quantidade;
+          return ('estoque' in right ? right.estoque : 0)
+            - ('estoque' in left ? left.estoque : 0);
         case 'name-asc':
           return left.nomeExibidoSite.localeCompare(right.nomeExibidoSite, 'pt-BR');
         default:
@@ -153,7 +154,9 @@ function ProdutoList() {
               <option value="price-asc">Menor preço</option>
               <option value="price-desc">Maior preço</option>
               <option value="name-asc">Nome A-Z</option>
-              <option value="stock-desc">Maior estoque</option>
+              {funcao === 'ROLE_ADMIN' && (
+                <option value="stock-desc">Maior estoque</option>
+              )}
             </select>
           </label>
         </div>
@@ -256,8 +259,13 @@ function ProdutoList() {
             </div>
           ) : (
             <div className="catalog-grid">
-              {filteredProducts.map((dadosProdutos) => (
-                <div className="catalog-grid__item" key={dadosProdutos.codigoSantri}>
+              {filteredProducts.map((dadosProdutos, index) => (
+                <div
+                  className="catalog-grid__item"
+                  key={'codigoSantri' in dadosProdutos
+                    ? dadosProdutos.codigoSantri
+                    : `${dadosProdutos.categoriaCodigo}-${dadosProdutos.nomeExibidoSite}-${index}`}
+                >
                   <Produtos {...dadosProdutos} />
                 </div>
               ))}
@@ -292,13 +300,17 @@ function ProdutoList() {
 
       {funcao === 'ROLE_ADMIN' && (
         <div className="admin-actions">
+          <Link className="btn btn-outline-primary" to="/admin/vitrine-loja">
+            <i className="bi bi-display me-2" />
+            Gerenciar vitrine da loja
+          </Link>
           <Link className="btn btn-outline-primary" to="/admin/vitrines-home">
             <i className="bi bi-layout-text-window-reverse me-2" />
             Gerenciar vitrines
           </Link>
           <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">
             <i className="bi bi-file-earmark-arrow-up me-2" />
-            Importar inventário
+            Importar relação de produtos
           </Link>
         </div>
       )}

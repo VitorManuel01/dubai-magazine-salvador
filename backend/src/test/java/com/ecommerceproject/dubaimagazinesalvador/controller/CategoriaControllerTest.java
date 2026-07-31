@@ -10,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
@@ -23,20 +21,23 @@ class CategoriaControllerTest {
     private CategoriaRepository categoriaRepository;
 
     private CategoriaController controller;
+    private List<Categoria> categorias;
 
     @BeforeEach
     void setUp() {
         controller = new CategoriaController(categoriaRepository);
-        when(categoriaRepository.findByNivelOrderByNomeAsc(1)).thenReturn(List.of(
+        categorias = List.of(
                 categoria("001", "PAPELARIA"),
                 categoria("123", "AJUSTES DE GRUPOS"),
                 categoria("999", "IMPLANTACAO")
-        ));
+        );
     }
 
     @Test
     void deveOcultarCategoriasInternasParaUsuarioComum() {
-        var resposta = controller.getAll(false, 1, null, null);
+        when(categoriaRepository.findByNivelAndExibirNoSiteTrueOrderByNomeAsc(1))
+                .thenReturn(categorias);
+        var resposta = controller.getAll(1, null);
 
         assertEquals(List.of("001"), resposta.stream()
                 .map(categoria -> categoria.codigo())
@@ -45,13 +46,8 @@ class CategoriaControllerTest {
 
     @Test
     void deveExibirCategoriasInternasParaAdministrador() {
-        var administrador = new UsernamePasswordAuthenticationToken(
-                "admin",
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
-        );
-
-        var resposta = controller.getAll(false, 1, null, administrador);
+        when(categoriaRepository.findByNivelOrderByNomeAsc(1)).thenReturn(categorias);
+        var resposta = controller.getAllAdministracao(false, 1, null);
 
         assertEquals(List.of("001", "123", "999"), resposta.stream()
                 .map(categoria -> categoria.codigo())

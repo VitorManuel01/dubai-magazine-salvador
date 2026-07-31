@@ -19,6 +19,10 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // O projeto usa efeitos para sincronizar controles locais com paginação,
+      // carrosséis e respostas assíncronas. Essa regra nova do plugin é voltada
+      // a otimização e não representa falha funcional ou de segurança.
+      'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
