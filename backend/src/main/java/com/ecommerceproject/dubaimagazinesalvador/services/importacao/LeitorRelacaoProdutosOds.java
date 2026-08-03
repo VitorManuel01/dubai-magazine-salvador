@@ -39,26 +39,26 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoImportac
 @Component
 public class LeitorRelacaoProdutosOds {
 
-    private static final String TABLE_NS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
-    private static final String TEXT_NS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+    private static final String TABLE_NS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";  //identificador do namespace para elementos de tabela no ODS
+    private static final String TEXT_NS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"; //identificador do namespace para elementos de texto no ODS
     private static final Pattern CODIGO_CATEGORIA =
-            Pattern.compile("^\\d+(?:\\.\\d+){0,3}$");
-    private static final Pattern CODIGO_PRODUTO = Pattern.compile("^[\\d.]+$");
+            Pattern.compile("^\\d+(?:\\.\\d+){0,3}$"); // expressão regular para validar códigos de categoria no formato "1", "1.2", "1.2.3" ou "
+    private static final Pattern CODIGO_PRODUTO = Pattern.compile("^[\\d.]+$"); // expressão regular para validar códigos de produto que consistem apenas em dígitos e pontos
     private static final DateTimeFormatter DATA_BRASILEIRA = DateTimeFormatter
             .ofPattern("dd/MM/uuuu", Locale.ROOT)
-            .withResolverStyle(ResolverStyle.STRICT);
-    private static final int MAX_COLUNAS_LIDAS = 80;
-    private static final int MAX_LINHAS = 500_000;
-    private static final int MAX_ENTRADAS_ZIP = 100;
-    private static final long MAX_ARQUIVO_BYTES = 20L * 1024L * 1024L;
-    private static final long MAX_CONTENT_XML_BYTES = 250L * 1024L * 1024L;
-    private static final long MAX_TOTAL_DESCOMPACTADO_BYTES = 300L * 1024L * 1024L;
-    private static final long TAMANHO_MINIMO_PARA_RAZAO = 1024L * 1024L;
-    private static final double RAZAO_MINIMA_COMPACTACAO = 0.01d;
+            .withResolverStyle(ResolverStyle.STRICT); //formato de data brasileiro (dia/mês/ano) com validação rigorosa
+    private static final int MAX_COLUNAS_LIDAS = 80; // máximo de colunas que serão lidas de cada linha da planilha ODS
+    private static final int MAX_LINHAS = 500_000; // máximo de linhas que serão lidas da planilha ODS
+    private static final int MAX_ENTRADAS_ZIP = 100; // máximo de entradas (arquivos internos) que serão lidas do arquivo ODS compactado (ZIP)
+    private static final long MAX_ARQUIVO_BYTES = 20L * 1024L * 1024L; // tamanho máximo do arquivo ODS que será aceito (20 MB)
+    private static final long MAX_CONTENT_XML_BYTES = 250L * 1024L * 1024L; // tamanho máximo do arquivo content.xml dentro do ODS que será aceito (250 MB)
+    private static final long MAX_TOTAL_DESCOMPACTADO_BYTES = 300L * 1024L * 1024L; // tamanho máximo total descompactado de todos os arquivos internos do ODS que será aceito (300 MB)
+    private static final long TAMANHO_MINIMO_PARA_RAZAO = 1024L * 1024L;// tamanho mínimo de um arquivo interno do ODS para que seja verificada a razão entre o tamanho compactado e descompactado (1 MB)
+    private static final double RAZAO_MINIMA_COMPACTACAO = 0.01d; // razão mínima entre o tamanho compactado e descompactado de um arquivo interno do ODS para que seja aceito (1%)
     private static final String MIME_ODS =
-            "application/vnd.oasis.opendocument.spreadsheet";
+            "application/vnd.oasis.opendocument.spreadsheet"; // tipo MIME que identifica arquivos ODS (OpenDocument Spreadsheet)
 
-    private static final List<String> CABECALHOS_OBRIGATORIOS = List.of(
+    private static final List<String> CABECALHOS_OBRIGATORIOS = List.of( //cabeçalhos obrigatórios que devem estar presentes na planilha ODS para que seja considerada válida
             "codigo",
             "nome",
             "ncm",
@@ -92,8 +92,8 @@ public class LeitorRelacaoProdutosOds {
             "numero fci"
     );
 
-    public RelacaoProdutosOdsDTO ler(InputStream arquivo) {
-        Path temporario = null;
+    public RelacaoProdutosOdsDTO ler(InputStream arquivo) { // lê o arquivo ODS a partir de um InputStream, processa seu conteúdo e retorna um objeto RelacaoProdutosOdsDTO que contém as categorias e produtos extraídos da planilha
+        Path temporario = null; // este caminho temporário é usado para armazenar o arquivo ODS enquanto ele é processado, garantindo que o arquivo seja fechado e excluído corretamente após a leitura
         try {
             temporario = copiarParaTemporario(arquivo);
             return lerArquivoZip(temporario);
@@ -106,7 +106,7 @@ public class LeitorRelacaoProdutosOds {
         }
     }
 
-    private RelacaoProdutosOdsDTO lerArquivoZip(Path arquivo) throws IOException {
+    private RelacaoProdutosOdsDTO lerArquivoZip(Path arquivo) throws IOException { // lê o arquivo ODS compactado (ZIP) a partir de um caminho temporário, valida sua estrutura e conteúdo, e retorna um objeto RelacaoProdutosOdsDTO que contém as categorias e produtos extraídos da planilha
         try (ZipFile zip = new ZipFile(arquivo.toFile(), StandardCharsets.UTF_8)) {
             ZipEntry contentXml = validarEstruturaZip(zip);
             validarMimetype(zip);
@@ -119,14 +119,24 @@ public class LeitorRelacaoProdutosOds {
         }
     }
 
+/*
+ * Valida restrições de segurança da estrutura ZIP do arquivo ODS:
+ * quantidade de entradas, nomes internos, duplicidades, tamanhos,
+ * volume total descompactado e razão de compactação.
+ *
+ * Também localiza e retorna a entrada content.xml.
+ *
+ * Este método não valida sozinho toda a conformidade com o formato ODS;
+ * o mimetype e o conteúdo XML são validados em etapas posteriores.
+ */
     private ZipEntry validarEstruturaZip(ZipFile zip) {
-        Enumeration<? extends ZipEntry> entradas = zip.entries();
-        Set<String> nomes = new HashSet<>();
-        ZipEntry contentXml = null;
-        int quantidade = 0;
-        long totalDescompactado = 0;
+        Enumeration<? extends ZipEntry> entradas = zip.entries(); // enumerador para percorrer todas as entradas (arquivos internos) do arquivo ZIP
+        Set<String> nomes = new HashSet<>(); // conjunto para armazenar os nomes das entradas do arquivo ZIP, garantindo que não haja duplicatas
+        ZipEntry contentXml = null; //o content.xml é o arquivo principal dentro do ODS que contém os dados da planilha, e será armazenado nesta variável para posterior leitura e processamento
+        int quantidade = 0; // contador para rastrear o número de entradas processadas no arquivo ZIP, garantindo que não ultrapasse o limite máximo permitido
+        long totalDescompactado = 0; // acumulador para rastrear o tamanho total descompactado de todas as entradas processadas no arquivo ZIP, garantindo que não ultrapasse o limite máximo permitido
 
-        while (entradas.hasMoreElements()) {
+        while (entradas.hasMoreElements()) {//enquanto houver entradas no arquivo ZIP, o loop continua, se passar do máximo para
             ZipEntry entrada = entradas.nextElement();
             quantidade++;
             if (quantidade > MAX_ENTRADAS_ZIP) {
@@ -140,8 +150,8 @@ public class LeitorRelacaoProdutosOds {
                 continue;
             }
 
-            long tamanho = entrada.getSize();
-            long compactado = entrada.getCompressedSize();
+            long tamanho = entrada.getSize(); // verifica o tamanho descompactado do arquivo interno, se for negativo é inválido
+            long compactado = entrada.getCompressedSize(); // verifica o tamanho compactado do arquivo interno, se for negativo é inválido
             if (tamanho < 0 || compactado < 0) {
                 throw new ImportacaoOdsException("O ODS possui tamanho interno inválido.");
             }
@@ -150,13 +160,13 @@ public class LeitorRelacaoProdutosOds {
                         "Um arquivo interno do ODS excede o limite permitido."
                 );
             }
-            totalDescompactado += tamanho;
+            totalDescompactado += tamanho; // verifica o tamanho total descompactado de todas as entradas processadas, se ultrapassar o limite máximo permitido, lança uma exceção
             if (totalDescompactado > MAX_TOTAL_DESCOMPACTADO_BYTES) {
                 throw new ImportacaoOdsException(
                         "O conteúdo descompactado do ODS é muito grande."
                 );
             }
-            if (tamanho >= TAMANHO_MINIMO_PARA_RAZAO
+            if (tamanho >= TAMANHO_MINIMO_PARA_RAZAO //verifica a razão entre o tamanho compactado e descompactado de um arquivo interno do ODS, se for menor que a razão mínima permitida, lança uma exceção
                     && compactado > 0
                     && (double) compactado / tamanho < RAZAO_MINIMA_COMPACTACAO) {
                 throw new ImportacaoOdsException(
@@ -176,14 +186,15 @@ public class LeitorRelacaoProdutosOds {
         return contentXml;
     }
 
+    // Valida o tipo MIME do arquivo ZIP, garantindo que ele seja um ODS válido.
     private void validarMimetype(ZipFile zip) throws IOException {
-        ZipEntry mimetype = zip.getEntry("mimetype");
-        if (mimetype == null || mimetype.getSize() > 200) {
+        ZipEntry mimetype = zip.getEntry("mimetype");// verifica se o arquivo ZIP contém a entrada "mimetype", que é um arquivo especial dentro do ODS que indica o tipo MIME do arquivo, e se o tamanho do arquivo "mimetype" não ultrapassa 200 bytes, garantindo que ele seja pequeno e seguro para leitura
+        if (mimetype == null || mimetype.getSize() > 200) { //invalida o arquivo ODS se a entrada "mimetype" não estiver presente ou se o tamanho do arquivo "mimetype" for maior que 200 bytes, lançando uma exceção ImportacaoOdsException com uma mensagem de erro apropriada
             throw new ImportacaoOdsException("Arquivo inválido: tipo ODS não confirmado.");
         }
         try (InputStream input = new InputStreamLimitado(zip.getInputStream(mimetype), 200)) {
-            String valor = new String(input.readAllBytes(), StandardCharsets.UTF_8).trim();
-            if (!MIME_ODS.equals(valor)) {
+            String valor = new String(input.readAllBytes(), StandardCharsets.UTF_8).trim();//tenta ler o conteúdo do arquivo "mimetype" e verificar se ele corresponde ao tipo MIME esperado para arquivos ODS, que é "application/vnd.oasis.opendocument.spreadsheet". Se o conteúdo do arquivo "mimetype" não corresponder a esse valor, lança uma exceção ImportacaoOdsException com uma mensagem de erro apropriada
+            if (!MIME_ODS.equals(valor)) { 
                 throw new ImportacaoOdsException("Arquivo inválido: tipo ODS não confirmado.");
             }
         }

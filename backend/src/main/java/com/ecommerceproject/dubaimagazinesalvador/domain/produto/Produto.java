@@ -30,6 +30,12 @@ import lombok.Setter;
 @EqualsAndHashCode(of = "codigoSantri")
 public class Produto {
 
+    //A lista de atributos da classe Produto é extensa para acomodar as informações contidas na base de dados do santri
+    //e permitir uma futura integração com o sistema de e-commerce caso venha a ser implementado.
+    //Como o santri cobra pela integração, a ideia é, de certa forma manualmente, mas não realmente, sincronizar o banco de dados 
+    //desta aplicação com o banco de dados do santri através da importação da planilha .ods que o santri disponibiliza para download, que contém todos os produtos cadastrados no santri, com seus respectivos atributos.
+
+
     @Id
     @Column(name = "codigo_santri", length = 32)
     private String codigoSantri;
@@ -235,7 +241,9 @@ public class Produto {
             this.imagemUrl = novaImagemUrl;
         }
     }
-
+    //como a loja trabalha com muitos produtos importados, é imperativo a tratativa do preço com IPI, pois o santri não disponibiliza o preço com IPI, apenas o preço sem IPI e o percentual de IPI de entrada. 
+    // Portanto, para exibir o preço correto no site, é necessário calcular o preço com IPI a partir do preço sem IPI e do percentual de IPI de entrada.
+    //Isto é com esta função onde fatorIpi é gerado com a função BigDecimal.ONE e movePointLeft(2) que converte o percentual de IPI de entrada em um fator multiplicativo(ex: 10.5% = 0.105 ou seja preco = precoSemIpi * 1.105) e arredondando para duas casas decimais.
     @Transient
     public BigDecimal getPrecoComIpi() {
         BigDecimal fatorIpi = BigDecimal.ONE.add(
@@ -246,6 +254,7 @@ public class Produto {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
+    //A função valorOuZero é utilizada para evitar NullPointerException ao lidar com valores nulos de BigDecimal, retornando BigDecimal.ZERO caso o valor seja nulo.
     private BigDecimal valorOuZero(BigDecimal valor) {
         return valor == null ? BigDecimal.ZERO : valor;
     }
