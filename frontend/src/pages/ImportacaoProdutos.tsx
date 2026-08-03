@@ -43,7 +43,7 @@ function ImportacaoProdutos() {
       setArquivo(null);
       return;
     }
-
+    // Validação do arquivo ODS antes de prosseguir com a importação, evitando arquivos maliciosos ou incorretos.
     const erroValidacao = await validarArquivoOds(selecionado);
     if (erroValidacao) {
       setArquivo(null);
@@ -67,7 +67,7 @@ function ImportacaoProdutos() {
       setFase('erro');
       return;
     }
-
+    // Criação de FormData para envio do arquivo ODS ao backend, permitindo o processamento da importação.
     const formData = new FormData();
     formData.append('arquivo', arquivo);
     setErro('');
@@ -75,7 +75,7 @@ function ImportacaoProdutos() {
     setProgresso(0);
     setFase('enviando');
 
-    try {
+    try { 
       const response = await axios.post<ResultadoImportacao>(
         '/admin/importacoes/produtos',
         formData,

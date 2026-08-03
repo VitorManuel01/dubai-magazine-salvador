@@ -1,14 +1,15 @@
-const MAX_ODS_BYTES = 20 * 1024 * 1024;
-const MAX_IMAGEM_BYTES = 5 * 1024 * 1024;
+const MAX_ODS_BYTES = 20 * 1024 * 1024; // 20 MB máximo para arquivos ODS
+const MAX_IMAGEM_BYTES = 5 * 1024 * 1024; // 5 MB máximo para imagens de produtos
 
+// Função auxiliar para extrair a extensão do arquivo a partir do nome.
 const extensao = (nome: string) => {
   const indice = nome.lastIndexOf('.');
   return indice < 0 ? '' : nome.slice(indice).toLowerCase();
 };
-
+// Função auxiliar para verificar se os bytes do arquivo correspondem a uma assinatura específica.
 const corresponde = (bytes: Uint8Array, inicio: number, assinatura: number[]) =>
   assinatura.every((valor, indice) => bytes[inicio + indice] === valor);
-
+// Função para validar arquivos ODS, verificando extensão, tamanho e assinatura do conteúdo.
 export async function validarArquivoOds(arquivo: File): Promise<string | null> {
   if (extensao(arquivo.name) !== '.ods') {
     return 'O arquivo selecionado precisa ter a extensão .ods.';
@@ -16,14 +17,17 @@ export async function validarArquivoOds(arquivo: File): Promise<string | null> {
   if (arquivo.size > MAX_ODS_BYTES) {
     return 'O arquivo ODS deve possuir no máximo 20 MB.';
   }
-
+  // Verificação da assinatura do arquivo ODS, que é um arquivo ZIP, garantindo que o conteúdo seja válido.
+  //Não é suficiente verificar apenas a extensão do arquivo, pois arquivos maliciosos podem ter a extensão .ods, mas não conter um arquivo ODS válido. 
+  // A verificação da assinatura do arquivo ajuda a garantir que o conteúdo seja realmente um arquivo ODS.
+  //A segurança de fato para evitar arquivos maliciosos é feita no backend, mas a validação no frontend ajuda a evitar que o usuário envie arquivos incorretos, melhorando a experiência do usuário.
   const bytes = new Uint8Array(await arquivo.slice(0, 4).arrayBuffer());
   if (!corresponde(bytes, 0, [0x50, 0x4b, 0x03, 0x04])) {
     return 'O conteúdo do arquivo selecionado não corresponde a um ODS válido.';
   }
   return null;
 }
-
+//Mesma validação de arquivos ODS, mas para imagens de produtos, verificando extensão, tamanho e assinatura do conteúdo.
 export async function validarImagemProduto(imagem: File): Promise<string | null> {
   if (imagem.size > MAX_IMAGEM_BYTES) {
     return 'A imagem deve possuir no máximo 5 MB.';
