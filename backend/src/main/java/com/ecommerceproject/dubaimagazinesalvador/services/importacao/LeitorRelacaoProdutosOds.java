@@ -48,7 +48,9 @@ public class LeitorRelacaoProdutosOds {
             .ofPattern("dd/MM/uuuu", Locale.ROOT)
             .withResolverStyle(ResolverStyle.STRICT); //formato de data brasileiro (dia/mês/ano) com validação rigorosa
     private static final int MAX_COLUNAS_LIDAS = 80; // máximo de colunas que serão lidas de cada linha da planilha ODS
-    private static final int MAX_LINHAS = 500_000; // máximo de linhas que serão lidas da planilha ODS
+    private static final int MAX_LINHAS = 25_000; // máximo de linhas que serão lidas da planilha ODS
+    private static final int MAX_PRODUTOS = 25_000; // máximo de produtos únicos aceitos em uma importação
+    private static final int MAX_CARACTERES_CELULA = 75; // máximo de caracteres Unicode por célula
     private static final int MAX_ENTRADAS_ZIP = 100; // máximo de entradas (arquivos internos) que serão lidas do arquivo ODS compactado (ZIP)
     private static final long MAX_ARQUIVO_BYTES = 20L * 1024L * 1024L; // tamanho máximo do arquivo ODS que será aceito (20 MB)
     private static final long MAX_CONTENT_XML_BYTES = 250L * 1024L * 1024L; // tamanho máximo do arquivo content.xml dentro do ODS que será aceito (250 MB)
@@ -276,6 +278,13 @@ public class LeitorRelacaoProdutosOds {
         while (reader.hasNext() && !primeiraPlanilhaEncerrada) {
             int event = reader.next();
 
+            if (event == XMLStreamConstants.DTD
+                    || event == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
+            }
+
             if (event == XMLStreamConstants.START_ELEMENT
                     && elemento(reader, TABLE_NS, "table")
                     && !dentroDaPrimeiraPlanilha) {
@@ -299,11 +308,11 @@ public class LeitorRelacaoProdutosOds {
             numeroLinha++;
             if (numeroLinha > MAX_LINHAS) {
                 throw new ImportacaoOdsException(
-                        "O ODS ultrapassa o limite de linhas permitido."
+                        "O ODS ultrapassa o limite de 25.000 linhas."
                 );
             }
 
-            List<String> colunas = lerLinha(reader);
+            List<String> colunas = lerLinha(reader, numeroLinha);
             if (cabecalhos == null) {
                 Map<String, Integer> possiveisCabecalhos = mapearCabecalhos(colunas);
                 if (ehCabecalhoAnalitico(possiveisCabecalhos)) {
@@ -365,6 +374,11 @@ public class LeitorRelacaoProdutosOds {
                     numeroLinha
             );
             produtos.put(codigoProduto, produto);
+            if (produtos.size() > MAX_PRODUTOS) {
+                throw new ImportacaoOdsException(
+                        "O ODS ultrapassa o limite de 25.000 produtos."
+                );
+            }
         }
 
         if (cabecalhos == null) {
@@ -521,7 +535,10 @@ public class LeitorRelacaoProdutosOds {
         }
     }
 
-    private List<String> lerLinha(XMLStreamReader reader) throws XMLStreamException {
+    private List<String> lerLinha(
+            XMLStreamReader reader,
+            int numeroLinha
+    ) throws XMLStreamException {
         List<String> colunas = new ArrayList<>(60);
 
         while (reader.hasNext()) {
@@ -542,7 +559,11 @@ public class LeitorRelacaoProdutosOds {
                     );
                 }
                 int repeticoes = repeticoes(reader);
-                String conteudo = lerCelula(reader);
+                String conteudo = lerCelula(
+                        reader,
+                        numeroLinha,
+                        colunas.size() + 1
+                );
                 adicionarColunas(colunas, conteudo, repeticoes);
             } else if (elemento(reader, TABLE_NS, "covered-table-cell")) {
                 adicionarColunas(colunas, "", repeticoes(reader));
@@ -552,7 +573,11 @@ public class LeitorRelacaoProdutosOds {
         return colunas;
     }
 
-    private String lerCelula(XMLStreamReader reader) throws XMLStreamException {
+    private String lerCelula(
+            XMLStreamReader reader,
+            int numeroLinha,
+            int numeroColuna
+    ) throws XMLStreamException {
         StringBuilder texto = new StringBuilder();
         int profundidade = 1;
         int dentroDeParagrafo = 0;
@@ -563,12 +588,27 @@ public class LeitorRelacaoProdutosOds {
                 profundidade++;
                 if (elemento(reader, TEXT_NS, "p")) {
                     if (!texto.isEmpty()) {
-                        texto.append(' ');
+                        adicionarTextoCelula(
+                                texto,
+                                " ",
+                                numeroLinha,
+                                numeroColuna
+                        );
                     }
                     dentroDeParagrafo++;
                 }
             } else if (event == XMLStreamConstants.CHARACTERS && dentroDeParagrafo > 0) {
-                texto.append(reader.getText());
+                adicionarTextoCelula(
+                        texto,
+                        reader.getText(),
+                        numeroLinha,
+                        numeroColuna
+                );
+            } else if (event == XMLStreamConstants.DTD
+                    || event == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if (elemento(reader, TEXT_NS, "p")) {
                     dentroDeParagrafo--;
@@ -578,6 +618,26 @@ public class LeitorRelacaoProdutosOds {
         }
 
         return normalizarTexto(texto.toString());
+    }
+
+    private void adicionarTextoCelula(
+            StringBuilder destino,
+            String trecho,
+            int numeroLinha,
+            int numeroColuna
+    ) {
+        int caracteresAtuais = destino.codePointCount(0, destino.length());
+        int caracteresNovos = trecho.codePointCount(0, trecho.length());
+        if (caracteresAtuais + caracteresNovos > MAX_CARACTERES_CELULA) {
+            throw new ImportacaoOdsException(
+                    "O ODS contém célula com mais de 75 caracteres na linha "
+                            + numeroLinha
+                            + ", coluna "
+                            + numeroColuna
+                            + "."
+            );
+        }
+        destino.append(trecho);
     }
 
     private int repeticoes(XMLStreamReader reader) {
@@ -704,16 +764,37 @@ public class LeitorRelacaoProdutosOds {
                 && nomeLocal.equals(reader.getLocalName());
     }
 
-    private void configurarXmlSeguro(XMLInputFactory factory) {
+    void configurarXmlSeguro(XMLInputFactory factory) {
+        exigirPropriedadeXmlDesativada(factory, XMLInputFactory.SUPPORT_DTD);
+        exigirPropriedadeXmlDesativada(
+                factory,
+                "javax.xml.stream.isSupportingExternalEntities"
+        );
+        exigirPropriedadeXmlDesativada(
+                factory,
+                XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES
+        );
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
+            throw new XMLStreamException("Acesso a recurso XML externo bloqueado.");
+        });
+    }
+
+    private void exigirPropriedadeXmlDesativada(
+            XMLInputFactory factory,
+            String propriedade
+    ) {
         try {
-            factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-        } catch (IllegalArgumentException ignored) {
-            // Implementações StAX podem não expor esta propriedade.
-        }
-        try {
-            factory.setProperty("javax.xml.stream.isSupportingExternalEntities", false);
-        } catch (IllegalArgumentException ignored) {
-            // Implementações StAX podem não expor esta propriedade.
+            factory.setProperty(propriedade, Boolean.FALSE);
+            if (!Boolean.FALSE.equals(factory.getProperty(propriedade))) {
+                throw new ImportacaoOdsException(
+                        "O parser XML não confirmou as proteções obrigatórias."
+                );
+            }
+        } catch (IllegalArgumentException e) {
+            throw new ImportacaoOdsException(
+                    "O parser XML não oferece as proteções obrigatórias.",
+                    e
+            );
         }
     }
 

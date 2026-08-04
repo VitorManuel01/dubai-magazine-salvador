@@ -31,26 +31,8 @@ public class TentativasLoginService {
     }
 
     @Transactional
-    public EstadoBloqueio verificarBloqueio(String identificador) {
-        Optional<Usuario> usuario = buscarConta(identificador);
-        if (usuario.isEmpty()) {
-            return EstadoBloqueio.liberado();
-        }
-
-        Usuario conta = usuario.get();
-        Instant agora = Instant.now();
-        if (conta.getBloqueadoAte() != null && agora.isBefore(conta.getBloqueadoAte())) {
-            return EstadoBloqueio.bloqueado(conta.getBloqueadoAte());
-        }
-        if (conta.getBloqueadoAte() != null) {
-            limpar(conta);
-        }
-        return EstadoBloqueio.liberado();
-    }
-
-    @Transactional
-    public EstadoBloqueio registrarFalha(String identificador) {
-        Optional<Usuario> usuario = buscarConta(identificador);
+    public EstadoBloqueio registrarFalha(String codigoSantri) {
+        Optional<Usuario> usuario = buscarContaParaAtualizacao(codigoSantri);
         if (usuario.isEmpty()) {
             return EstadoBloqueio.liberado();
         }
@@ -87,14 +69,11 @@ public class TentativasLoginService {
         });
     }
 
-    private Optional<Usuario> buscarConta(String identificador) {
-        String normalizado = identificador == null
+    private Optional<Usuario> buscarContaParaAtualizacao(String codigoSantri) {
+        String normalizado = codigoSantri == null
                 ? ""
-                : identificador.trim().toLowerCase(Locale.ROOT);
-        return usuarioRepository.findFirstByLoginIgnoreCaseOrEmailIgnoreCase(
-                normalizado,
-                normalizado
-        );
+                : codigoSantri.trim().toUpperCase(Locale.ROOT);
+        return usuarioRepository.buscarPorCodigoSantriParaAtualizacao(normalizado);
     }
 
     private void limpar(Usuario conta) {

@@ -31,22 +31,19 @@ class TentativasLoginServiceTest {
         service = new TentativasLoginService(repository, 3, Duration.ofMinutes(20));
         usuario = new Funcionario();
         usuario.setId(UUID.randomUUID());
-        usuario.setLogin("funcionario");
-        usuario.setEmail("funcionario@dubai.test");
-        when(repository.findFirstByLoginIgnoreCaseOrEmailIgnoreCase(
-                "funcionario",
-                "funcionario"
-        )).thenReturn(Optional.of(usuario));
+        usuario.setCodigoSantri("FUN-001");
+        when(repository.buscarPorCodigoSantriParaAtualizacao("FUN-001"))
+                .thenReturn(Optional.of(usuario));
         when(repository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
     }
 
     @Test
     void deveBloquearContaNaTerceiraFalhaPorVinteMinutos() {
-        assertFalse(service.registrarFalha("FUNCIONARIO").bloqueado());
-        assertFalse(service.registrarFalha("funcionario").bloqueado());
+        assertFalse(service.registrarFalha("fun-001").bloqueado());
+        assertFalse(service.registrarFalha("FUN-001").bloqueado());
         Instant antesDaTerceira = Instant.now();
 
-        var bloqueio = service.registrarFalha("funcionario");
+        var bloqueio = service.registrarFalha("FUN-001");
 
         assertTrue(bloqueio.bloqueado());
         assertEquals(3, usuario.getTentativasLoginFalhas());

@@ -37,8 +37,7 @@ class FuncionarioSecurityTest {
 
     private static final String FUNCIONARIO_VALIDO = """
             {
-              "login": "funcionario.teste",
-              "email": "funcionario@dubai.com.br",
+              "codigoSantri": "FUN-001",
               "senha": "SenhaForte@2026",
               "funcao": "admin",
               "nomeFuncionario": "Funcionário Teste",
@@ -88,9 +87,7 @@ class FuncionarioSecurityTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void administradorCadastraFuncionarioComSenhaCriptografadaEFuncaoForcada() throws Exception {
-        when(usuarioRepository.existsByLoginIgnoreCase("funcionario.teste"))
-                .thenReturn(false);
-        when(usuarioRepository.existsByEmailIgnoreCase("funcionario@dubai.com.br"))
+        when(usuarioRepository.existsByCodigoSantriIgnoreCase("FUN-001"))
                 .thenReturn(false);
         when(passwordEncoder.encode("SenhaForte@2026"))
                 .thenReturn("$2a$12$hash-seguro");

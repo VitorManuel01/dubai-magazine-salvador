@@ -36,34 +36,4 @@ public class Administrador extends Usuario implements IsAdmin{
     }
 
 
-    public Administrador( String senha,boolean admin, String nome,  
-                     String CPF, String sexo, LocalDate dataNascimento,String CEP, String endereco, String bairro, 
-                       String telefone) {
-    this.admin = admin;
-    this.nome = nome;
-    this.CPF = CPF;
-    this.sexo = sexo;
-    this.dataNascimento = dataNascimento;
-    this.CEP = CEP;
-    this.endereco = endereco;
-    this.bairro = bairro;
-    this.telefone = telefone;
-}
-
-    public Administrador( RegisterAdmDTO data) {
-        super();
-        this.setLogin(data.login());
-        this.setEmail(data.email());
-        this.setSenha(data.senha());
-        this.admin = data.admin();
-        this.nome = data.nome();
-        this.CPF = data.CPF();
-        this.sexo = data.sexo();
-        this.dataNascimento = data.dataNascimento();
-        this.CEP = data.CEP();
-        this.endereco = data.endereco();
-        this.bairro = data.bairro();
-        this.telefone = data.telefone();
-    }
-
 }

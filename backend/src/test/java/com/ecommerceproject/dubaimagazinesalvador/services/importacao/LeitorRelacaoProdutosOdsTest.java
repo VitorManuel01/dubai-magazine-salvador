@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -20,6 +22,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import javax.xml.stream.XMLInputFactory;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -105,6 +109,97 @@ class LeitorRelacaoProdutosOdsTest {
                         xml.getBytes(StandardCharsets.UTF_8)
                 )))
         );
+    }
+
+    @Test
+    void deveRejeitarCelulaComMaisDe75Caracteres() throws Exception {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <office:document-content
+                    xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                    xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+                    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+                  <office:body><office:spreadsheet><table:table table:name="Teste">
+                    <table:table-row>
+                      <table:table-cell><text:p>%s</text:p></table:table-cell>
+                    </table:table-row>
+                  </table:table></office:spreadsheet></office:body>
+                </office:document-content>
+                """.formatted("A".repeat(76));
+
+        ImportacaoOdsException exception = assertThrows(
+                ImportacaoOdsException.class,
+                () -> leitor.ler(new ByteArrayInputStream(empacotarOds(
+                        xml.getBytes(StandardCharsets.UTF_8)
+                )))
+        );
+
+        assertTrue(exception.getMessage().contains("mais de 75 caracteres"));
+    }
+
+    @Test
+    void deveRejeitarPlanilhaComMaisDe25MilLinhas() throws Exception {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <office:document-content
+                    xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                    xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0">
+                  <office:body><office:spreadsheet><table:table table:name="Teste">
+                    %s
+                  </table:table></office:spreadsheet></office:body>
+                </office:document-content>
+                """.formatted("<table:table-row/>".repeat(25_001));
+
+        ImportacaoOdsException exception = assertThrows(
+                ImportacaoOdsException.class,
+                () -> leitor.ler(new ByteArrayInputStream(empacotarOds(
+                        xml.getBytes(StandardCharsets.UTF_8)
+                )))
+        );
+
+        assertTrue(exception.getMessage().contains("25.000 linhas"));
+    }
+
+    @Test
+    void deveRejeitarDtdEEntidadeXml() throws Exception {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE documento [
+                  <!ENTITY arquivoExterno SYSTEM "file:///arquivo-que-nao-deve-ser-lido">
+                ]>
+                <office:document-content
+                    xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                    xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+                    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+                  <office:body><office:spreadsheet><table:table table:name="Teste">
+                    <table:table-row>
+                      <table:table-cell><text:p>&arquivoExterno;</text:p></table:table-cell>
+                    </table:table-row>
+                  </table:table></office:spreadsheet></office:body>
+                </office:document-content>
+                """;
+
+        assertThrows(
+                ImportacaoOdsException.class,
+                () -> leitor.ler(new ByteArrayInputStream(empacotarOds(
+                        xml.getBytes(StandardCharsets.UTF_8)
+                )))
+        );
+    }
+
+    @Test
+    void deveFalharFechadoQuandoParserNaoAceitarProtecaoObrigatoria() {
+        XMLInputFactory factory = mock(XMLInputFactory.class);
+        doThrow(new IllegalArgumentException("Propriedade não suportada"))
+                .when(factory)
+                .setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
+
+        ImportacaoOdsException exception = assertThrows(
+                ImportacaoOdsException.class,
+                () -> leitor.configurarXmlSeguro(factory)
+        );
+
+        assertTrue(exception.getMessage().contains("proteções obrigatórias"));
     }
 
     @Test

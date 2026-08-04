@@ -10,6 +10,5 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Administrador;
 
 @Repository
 public interface AdministradorRespository extends JpaRepository<Administrador, UUID>{
-    UserDetails findByLogin(String login);
-    UserDetails findByEmail(String email);
+    UserDetails findByCodigoSantriIgnoreCase(String codigoSantri);
 }

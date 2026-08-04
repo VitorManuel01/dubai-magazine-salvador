@@ -1,7 +1,6 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
 import java.time.LocalDate;
-import java.util.Locale;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -88,8 +87,7 @@ public class Funcionario extends Usuario{
 
     public Funcionario(FuncionarioRequestDTO data, String senhaCriptografada) {
         super();
-        this.setEmail(data.email().trim().toLowerCase(Locale.ROOT));
-        this.setLogin(data.login().trim());
+        this.setCodigoSantri(data.codigoSantri().trim());
         this.setSenha(senhaCriptografada);
         this.setFuncao(Role.ROLE_FUNCIONARIO);
         this.nomeFuncionario = data.nomeFuncionario().trim();

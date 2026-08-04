@@ -28,7 +28,7 @@ class TokenServiceTest {
 
         Funcionario usuario = new Funcionario();
         usuario.setId(UUID.randomUUID());
-        usuario.setLogin("funcionario");
+        usuario.setCodigoSantri("FUNC-001");
         usuario.setFuncao(Role.ROLE_FUNCIONARIO);
         Instant emitidoDepoisDe = Instant.now();
 
@@ -37,6 +37,10 @@ class TokenServiceTest {
         long duracao = Duration.between(emitidoDepoisDe, expiraEm).getSeconds();
 
         assertTrue(duracao >= 3599 && duracao <= 3600);
+        org.junit.jupiter.api.Assertions.assertEquals(
+                usuario.getId(),
+                service.validateToken(token)
+        );
     }
 
     @Test

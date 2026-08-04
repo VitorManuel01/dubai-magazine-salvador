@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom';
 import './MinhaConta.css';
 
 interface FuncionarioForm {
-  login: string;
-  email: string;
+  codigoSantri: string;
   senha: string;
   confirmarSenha: string;
   nomeFuncionario: string;
@@ -18,8 +17,7 @@ interface FuncionarioForm {
 }
 
 const estadoInicial: FuncionarioForm = {
-  login: '',
-  email: '',
+  codigoSantri: '',
   senha: '',
   confirmarSenha: '',
   nomeFuncionario: '',
@@ -57,8 +55,7 @@ function FuncionariosAdmin() {
     setEnviando(true);
     try {
       const dados = {
-        login: form.login,
-        email: form.email,
+        codigoSantri: form.codigoSantri,
         senha: form.senha,
         nomeFuncionario: form.nomeFuncionario,
         CPF: form.CPF,
@@ -77,7 +74,7 @@ function FuncionariosAdmin() {
       const status = (falha as AxiosError).response?.status;
       setErro(
         status === 409
-          ? 'Já existe um usuário com esse login ou e-mail.'
+          ? 'Já existe um usuário com esse código Santri.'
           : 'Não foi possível cadastrar. Confira os campos e tente novamente.'
       );
     } finally {
@@ -114,31 +111,17 @@ function FuncionariosAdmin() {
           </div>
 
           <div className="employee-field">
-            <label htmlFor="employee-login">Login</label>
+            <label htmlFor="employee-login">Código Santri</label>
             <input
               id="employee-login"
-              value={form.login}
-              onChange={(event) => alterar('login', event.target.value)}
-              minLength={4}
+              value={form.codigoSantri}
+              onChange={(event) => alterar('codigoSantri', event.target.value)}
               maxLength={50}
               pattern="[A-Za-z0-9._-]+"
               autoComplete="username"
               required
             />
-            <small>Letras, números, ponto, hífen ou sublinhado.</small>
-          </div>
-
-          <div className="employee-field">
-            <label htmlFor="employee-email">E-mail</label>
-            <input
-              id="employee-email"
-              type="email"
-              value={form.email}
-              onChange={(event) => alterar('email', event.target.value)}
-              maxLength={254}
-              autoComplete="email"
-              required
-            />
+            <small>Use exatamente o código cadastrado para o funcionário no Santri.</small>
           </div>
 
           <div className="employee-field">

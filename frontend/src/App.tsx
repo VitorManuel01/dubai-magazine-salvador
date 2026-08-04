@@ -19,6 +19,12 @@ import VitrineLoja from './pages/VitrineLoja';
 import VitrineLojaAdmin from './pages/VitrineLojaAdmin';
 import MinhaConta from './pages/MinhaConta';
 import FuncionariosAdmin from './pages/FuncionariosAdmin';
+import {
+  Contato,
+  PoliticaPrivacidade,
+  QuemSomos,
+  TrocasDevolucoes,
+} from './pages/Institucional';
 import { useAuth } from './context/AuthContext';
 import { useCategoriasPrincipais } from './hooks/useCategoriasPrincipais';
 
@@ -127,8 +133,7 @@ function ConteudoAplicacao() {
           <header className="internal-header">
             <div className="internal-header__inner">
               <Link className="brand-area" to="/vitrine-loja" aria-label="Dubai Magazine">
-                <span className="brand-name">Dubai</span>
-                <span className="brand-subtitle">MAGAZINE</span>
+                <img className="brand-logo" src="/assets/branding/DubaiMagazine_Principal_Azul.png" alt="Dubai Magazine" />
               </Link>
               <div className="internal-header__title">
                 <span>Ambiente interno</span>
@@ -163,18 +168,19 @@ function ConteudoAplicacao() {
         <div className="top-strip">
           <div className="top-strip__inner">
             <div className="top-strip__group">
-              <span className="top-strip__item"><i className="bi bi-whatsapp" /> WhatsApp</span>
-              <span className="top-strip__item"><i className="bi bi-telephone" /> (11) 4668-1234</span>
-              <span className="top-strip__item"><i className="bi bi-envelope" /> loja@dubaimagazine.com.br</span>
+              <span className="top-strip__item"><i className="bi bi-whatsapp" /> (71) 99629-3392</span>
+              <a className="top-strip__item" href="tel:+557131839000"><i className="bi bi-telephone" /> (71) 3183-9000</a>
+              <a className="top-strip__item" href="mailto:Contato@dubaimagazine.com.br"><i className="bi bi-envelope" /> Contato@dubaimagazine.com.br</a>
             </div>
             <div className="top-strip__center">
-              <span className="top-strip__item"><i className="bi bi-truck" /> Retirada na loja</span>
+              <a className="top-strip__item" href="https://maps.app.goo.gl/8wzibo5BrmwbmK9H8" target="_blank" rel="noreferrer">
+                <i className="bi bi-truck" /> Retirada na loja
+              </a>
             </div>
             <div className="top-strip__group top-strip__group--social">
-              <span className="top-strip__item"><i className="bi bi-facebook" /></span>
-              <span className="top-strip__item"><i className="bi bi-instagram" /></span>
-              <span className="top-strip__item"><i className="bi bi-youtube" /></span>
-              <span className="top-strip__item"><i className="bi bi-tiktok" /></span>
+              <a className="top-strip__item" href="https://www.instagram.com/dubai.magazine/" target="_blank" rel="noreferrer" aria-label="Instagram da Dubai Magazine">
+                <i className="bi bi-instagram" /> @dubai.magazine
+              </a>
             </div>
           </div>
         </div>
@@ -182,8 +188,7 @@ function ConteudoAplicacao() {
         <header className="site-header">
           <div className="site-header__inner">
             <Link className="brand-area" to="/" aria-label="Dubai Magazine">
-              <span className="brand-name">Dubai</span>
-              <span className="brand-subtitle">MAGAZINE</span>
+              <img className="brand-logo" src="/assets/branding/DubaiMagazine_Principal_Azul.png" alt="Dubai Magazine" />
             </Link>
 
             <BarraBusca />
@@ -260,6 +265,10 @@ function ConteudoAplicacao() {
             {/* Rota raiz agora abre a Home com o carrossel promocional */}
             <Route path="/" element={<Home />} />
             <Route path="/produtos" element={<ProdutosList />} />
+            <Route path="/quem-somos" element={<QuemSomos />} />
+            <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
+            <Route path="/contato" element={<Contato />} />
+            <Route path="/trocas-e-devolucoes" element={<TrocasDevolucoes />} />
             {/* manter /inicio como alias para a home; redireciona para / */}
             <Route path="/inicio" element={<Navigate to="/" replace />} />
             <Route path="/admin" element={<AcessoInterno />} />
@@ -318,67 +327,57 @@ function ConteudoAplicacao() {
         {!areaVitrine && !areaAcesso && (
         <footer className="site-footer">
           <div className="site-footer__inner">
-            <div className="footer-top">
+            <div className="footer-main">
               <div className="footer-brand">
                 <Link className="brand-area" to="/" aria-label="Dubai Magazine - página inicial">
-                  <span className="brand-name">Dubai</span>
-                  <span className="brand-subtitle">MAGAZINE</span>
+                  <img className="brand-logo" src="/assets/branding/DubaiMagazine_Principal_Azul.png" alt="Dubai Magazine" />
                 </Link>
                 <div className="footer-social" style={{ marginTop: '12px' }}>
-                  <span className="footer-meta"><i className="bi bi-instagram" /> Instagram</span>
-                  <span className="footer-meta"><i className="bi bi-facebook" /> Facebook</span>
-                  <span className="footer-meta"><i className="bi bi-youtube" /> YouTube</span>
-                  <span className="footer-meta"><i className="bi bi-tiktok" /> TikTok</span>
+                  <a className="footer-meta" href="https://www.instagram.com/dubai.magazine/" target="_blank" rel="noreferrer">
+                    <i className="bi bi-instagram" /> @dubai.magazine
+                  </a>
                 </div>
               </div>
 
-              <div className="footer-newsletter">
-                <h3>Receba nossas novidades por e-mail</h3>
-                <div className="footer-newsletter__fields">
-                  <input type="text" placeholder="Nome completo" aria-label="Nome completo" />
-                  <input type="text" placeholder="Fone/WhatsApp" aria-label="Fone ou WhatsApp" />
-                  <input type="email" placeholder="E-mail" aria-label="E-mail" />
-                  <button type="button">OK</button>
+              <div className="footer-col footer-navigation">
+                <h4>Navegação</h4>
+                <div className="footer-links">
+                  <Link className="footer-link" to="/produtos">Todos os produtos</Link>
+                  {categoriasPrincipais.map((categoria) => (
+                    <Link className="footer-link" key={categoria.codigo} to={`/produtos?categoria=${encodeURIComponent(categoria.codigo)}`}>
+                      {categoria.nome}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <div className="footer-col footer-institutional">
+                <h4>Institucional</h4>
+                <div className="footer-links">
+                  <Link className="footer-link" to="/quem-somos">Quem somos</Link>
+                  <Link className="footer-link" to="/politica-de-privacidade">Política de privacidade</Link>
+                  <Link className="footer-link" to="/contato">Contato</Link>
+                  <Link className="footer-link" to="/trocas-e-devolucoes">Trocas e devoluções</Link>
                 </div>
               </div>
 
               <div className="footer-contact">
                 <div className="footer-col">
                   <h4>Entre em contato</h4>
-                  <p className="footer-meta"><i className="bi bi-whatsapp" /> (11) 4668-1234</p>
-                  <p className="footer-meta"><i className="bi bi-telephone" /> (11) 97528-0101</p>
-                  <p className="footer-meta"><i className="bi bi-envelope" /> atendimento@dubaimagazine.com.br</p>
-                  <p className="footer-meta"><i className="bi bi-geo-alt" /> R. São Miguel, 1188 - Itapecerica</p>
-                  <p className="footer-meta"><i className="bi bi-clock" /> Seg a Sex: 08:00 às 18:30</p>
+                  <p className="footer-meta"><i className="bi bi-whatsapp" /> (71) 99629-3392</p>
+                  <a className="footer-meta" href="tel:+557131839000"><i className="bi bi-telephone" /> (71) 3183-9000</a>
+                  <a className="footer-meta" href="mailto:Contato@dubaimagazine.com.br"><i className="bi bi-envelope" /> Contato@dubaimagazine.com.br</a>
+                  <a className="footer-meta" href="https://maps.app.goo.gl/8wzibo5BrmwbmK9H8" target="_blank" rel="noreferrer"><i className="bi bi-geo-alt" /> Rua do Uruguay, 63 - Uruguai, Salvador - BA, 40450-211</a>
+                  <p className="footer-meta footer-meta--hours"><i className="bi bi-clock" /> <span>Segunda a sexta: 08:30 às 18:00<br />Sábado: 08:30 às 16:00<br />Domingo: 08:30 às 13:00</span></p>
                 </div>
               </div>
-            </div>
-
-            <div className="footer-columns">
-              <div className="footer-col">
-                <h4>Navegação</h4>
-                <div className="footer-links">
-                  <Link className="footer-link" to="/produtos">Esportes e Lazer</Link>
-                  <Link className="footer-link" to="/produtos">Casa e Jardinagem</Link>
-                  <Link className="footer-link" to="/produtos">Ferramenta e Construção</Link>
-                  <Link className="footer-link" to="/produtos">Vestuário e Acessórios</Link>
-                </div>
-              </div>
-
-              <div className="footer-col">
-                <h4>Institucional</h4>
-                <div className="footer-links">
-                  <Link className="footer-link" to="/produtos">Catálogo de produtos</Link>
-                </div>
-              </div>
-
             </div>
           </div>
 
           <div className="footer-bottom">
             <div className="footer-bottom__inner">
-              <span>Dubai Magazine · Tudo que você precisa em um só lugar.</span>
-              <span>© 2026 · Layout inspirado na referência enviada.</span>
+              <strong>Dubai Magazine</strong>
+              <span>© 2026. Dubai Magazine - 11427503000407. Todos os direitos reservados.</span>
             </div>
           </div>
         </footer>

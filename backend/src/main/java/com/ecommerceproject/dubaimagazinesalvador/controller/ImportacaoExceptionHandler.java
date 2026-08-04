@@ -8,10 +8,20 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import com.ecommerceproject.dubaimagazinesalvador.services.importacao.ImportacaoEmAndamentoException;
 import com.ecommerceproject.dubaimagazinesalvador.services.importacao.ImportacaoOdsException;
 
 @RestControllerAdvice
 public class ImportacaoExceptionHandler {
+
+    @ExceptionHandler(ImportacaoEmAndamentoException.class)
+    public ResponseEntity<ErroImportacaoDTO> importacaoEmAndamento(
+            ImportacaoEmAndamentoException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErroImportacaoDTO(exception.getMessage(), LocalDateTime.now())
+        );
+    }
 
     @ExceptionHandler(ImportacaoOdsException.class)
     public ResponseEntity<ErroImportacaoDTO> arquivoInvalido(ImportacaoOdsException exception) {

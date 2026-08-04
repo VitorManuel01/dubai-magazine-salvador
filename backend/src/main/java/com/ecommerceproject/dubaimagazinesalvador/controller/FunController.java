@@ -1,7 +1,7 @@
 package com.ecommerceproject.dubaimagazinesalvador.controller;
 
 import java.util.List;
-
+import java.util.Locale;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,17 +14,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.FuncionarioRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Funcionario;
+import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.FuncionarioRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.FuncionarioResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.FuncionarioRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
 
 import jakarta.validation.Valid;
 
-
-@RestController //Anotação para definir o controller
-@RequestMapping("funcionario") //Anotação para para "mapear qual tabela/classe" se está trabalhando
+@RestController
+@RequestMapping("funcionario")
 @PreAuthorize("hasRole('ADMIN')")
 public class FunController {
 
@@ -42,35 +41,33 @@ public class FunController {
         this.passwordEncoder = passwordEncoder;
     }
 
-    @PostMapping //Anotação para realizar o Post e enviar os dados para o banco
+    @PostMapping
     public ResponseEntity<FuncionarioResponseDTO> saveFuncionario(
             @Valid @RequestBody FuncionarioRequestDTO data
     ) {
-        String login = data.login().trim();
-        String email = data.email().trim();
-
-        if (usuarioRepository.existsByLoginIgnoreCase(login)
-                || usuarioRepository.existsByEmailIgnoreCase(email)) {
+        String codigoSantri = data.codigoSantri().trim().toUpperCase(Locale.ROOT);
+        if (usuarioRepository.existsByCodigoSantriIgnoreCase(codigoSantri)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Login ou e-mail já cadastrado"
+                    "Código Santri já cadastrado"
             );
         }
 
-        String senhaCriptografada = passwordEncoder.encode(data.senha());
-        Funcionario funcionario = repository.save(
-                new Funcionario(data, senhaCriptografada)
+        Funcionario funcionario = new Funcionario(
+                data,
+                passwordEncoder.encode(data.senha())
         );
+        funcionario.setCodigoSantri(codigoSantri);
+        funcionario = repository.save(funcionario);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new FuncionarioResponseDTO(funcionario));
     }
 
     @GetMapping
-    public List<FuncionarioResponseDTO> getAll(){
+    public List<FuncionarioResponseDTO> getAll() {
         return repository.findAll().stream()
                 .map(FuncionarioResponseDTO::new)
                 .toList();
     }
-
 }
