@@ -1,4 +1,4 @@
 export interface LoginData {
-    emailOrLogin: string;
+    codigoSantri: string;
     senha: string;
-  }
+}

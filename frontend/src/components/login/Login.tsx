@@ -11,17 +11,17 @@ interface ErroLogin {
 
 const Login = () => {
   const navigate = useNavigate();
-  const [emailOrLogin, setEmailOrLogin] = useState("");
+  const [codigoSantri, setCodigoSantri] = useState("");
   const [senha, setSenha] = useState("");
   const { mutate, isPending, error } = useDadosLoginMutate();
   const mensagemErro = axios.isAxiosError<ErroLogin>(error)
-    ? error.response?.data?.erro ?? "Login ou senha inválidos."
-    : "Login ou senha inválidos.";
+    ? error.response?.data?.erro ?? "Código Santri ou senha inválidos."
+    : "Código Santri ou senha inválidos.";
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     mutate(
-      { emailOrLogin, senha },
+      { codigoSantri, senha },
       {
         onSuccess: ({ token }) => {
           const { funcao } = jwtDecode<JwtDadosUsuario>(token);
@@ -44,12 +44,13 @@ const Login = () => {
         </p>
         <form className="login-form" onSubmit={handleLogin}>
           <div className="login-field">
-            <label htmlFor="login-identifier">E-mail ou login</label>
+            <label htmlFor="login-identifier">Código Santri</label>
             <input
               id="login-identifier"
               type="text"
-              value={emailOrLogin}
-              onChange={(e) => setEmailOrLogin(e.target.value)}
+              value={codigoSantri}
+              onChange={(e) => setCodigoSantri(e.target.value)}
+              maxLength={50}
               autoComplete="username"
               required
             />

@@ -2,13 +2,18 @@ import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
 import { LoginData } from "../interface/LoginData";
 import { useAuth } from "../context/AuthContext";
+import { obterIdDispositivo } from "../utils/dispositivo";
 
 interface LoginResponse {
     token: string;
 }
 
 const postLogin = async (data: LoginData): Promise<LoginResponse> => {
-    const response = await axios.post<LoginResponse>("/auth/login", data);
+    const response = await axios.post<LoginResponse>("/auth/login", data, {
+        headers: {
+            "X-Device-Id": obterIdDispositivo(),
+        },
+    });
     return response.data;
 };
 

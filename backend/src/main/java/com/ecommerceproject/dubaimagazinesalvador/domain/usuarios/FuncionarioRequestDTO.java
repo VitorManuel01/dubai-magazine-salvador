@@ -2,7 +2,6 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
 import java.time.LocalDate;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
@@ -10,14 +9,12 @@ import jakarta.validation.constraints.Size;
 
 public record FuncionarioRequestDTO(
         @NotBlank
-        @Size(min = 4, max = 50)
-        @Pattern(regexp = "^[A-Za-z0-9._-]+$", message = "O login deve conter apenas letras, números, ponto, hífen ou sublinhado")
-        String login,
-
-        @NotBlank
-        @Email
-        @Size(max = 254)
-        String email,
+        @Size(max = 50)
+        @Pattern(
+                regexp = "^[A-Za-z0-9._-]+$",
+                message = "O código Santri contém caracteres inválidos"
+        )
+        String codigoSantri,
 
         @NotBlank
         @Size(min = 12, max = 128)

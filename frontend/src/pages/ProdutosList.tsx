@@ -125,6 +125,17 @@ function ProdutoList() {
 
   return (
     <div className="catalog-page">
+      <aside className="catalog-store-notice" aria-label="Informações para compra">
+        <i className="bi bi-info-circle" aria-hidden="true" />
+        <div>
+          <strong>Catálogo da loja física</strong>
+          <p>
+            Este portal refere-se somente ao catálogo de itens disponíveis na loja. Para clientes
+            empresa, entre em contato pelo WhatsApp para realizar um pedido. Link em breve.
+          </p>
+          <span><i className="bi bi-shop" /> Compras somente na loja.</span>
+        </div>
+      </aside>
       <section className="catalog-header">
         <div>
           <p className="catalog-breadcrumb">

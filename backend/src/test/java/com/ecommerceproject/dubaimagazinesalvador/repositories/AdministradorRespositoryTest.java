@@ -1,8 +1,7 @@
 package com.ecommerceproject.dubaimagazinesalvador.repositories;
 
-import java.time.LocalDate;
-
 import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,12 +9,10 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Administrador;
-import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.RegisterAdmDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Role;
 import com.ecommerceproject.dubaimagazinesalvador.infra.security.SecurityFilter;
 import com.ecommerceproject.dubaimagazinesalvador.infra.security.TokenService;
@@ -30,48 +27,37 @@ class AdministradorRespositoryTest {
 
     @MockBean
     private TokenService tokenService;
-    
+
     @MockBean
     private SecurityFilter securityFilter;
 
-    @MockBean
-    private UsuarioRepository usuarioRepository;
-
     @Test
     @Transactional
-    @WithMockUser(roles = "ADMIN")
-    @DisplayName("Deve retornar Administrador do banco de dados")
-    void findByLoginCase1() {
-        String login = "adminBolado";
-        String email = "chorimano.vitor@hotmail.com";
-        LocalDate dataNascimento = LocalDate.of(2001, 1, 30);
-        RegisterAdmDTO data = new RegisterAdmDTO(login, email, "VitorSQLDeusVult", Role.ROLE_ADMIN, true, 
-                                                  "Vitor Manuel", "10112019501", "M", dataNascimento,
-                                                  "42702750", "rua das pedrinhas", "Centro", "71999133476");
-        
-        this.createAdministrador(data);
-        UserDetails result = this.administradorRespository.findByLogin(login);
+    @DisplayName("Deve retornar administrador pelo código Santri")
+    void findByCodigoSantriCase1() {
+        Administrador administrador = new Administrador();
+        administrador.setCodigoSantri("ADM-001");
+        administrador.setSenha("hash");
+        administrador.setFuncao(Role.ROLE_ADMIN);
+        administrador.setAdmin(true);
+        administrador.setNome("Administrador Teste");
+        administrador.setCPF("10112019501");
+        administradorRespository.save(administrador);
 
-        assertThat(result).isNotNull();
-        assertThat(result.getUsername()).isEqualTo(login);
+        UserDetails resultado = administradorRespository
+                .findByCodigoSantriIgnoreCase("adm-001");
+
+        assertThat(resultado).isNotNull();
+        assertThat(resultado.getUsername()).isEqualTo("ADM-001");
     }
 
     @Test
     @Transactional
-    @WithMockUser(roles = "ADMIN")
-    @DisplayName("Não deve retornar Administrador do banco de dados se não existir")
-    void findByLoginCase2() {
-        String login = "adminBolado";
+    @DisplayName("Não deve retornar administrador inexistente")
+    void findByCodigoSantriCase2() {
+        UserDetails resultado = administradorRespository
+                .findByCodigoSantriIgnoreCase("ADM-INEXISTENTE");
 
-        UserDetails result = this.administradorRespository.findByLogin(login);
-
-        assertThat(result).isNull();
-    }
-
-    @Transactional
-    @WithMockUser(roles = "ADMIN")
-    private Administrador createAdministrador(RegisterAdmDTO data) {
-        Administrador newAdmin = new Administrador(data);
-        return administradorRespository.save(newAdmin);
+        assertThat(resultado).isNull();
     }
 }

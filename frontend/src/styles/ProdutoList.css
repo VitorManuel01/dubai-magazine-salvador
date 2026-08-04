@@ -116,6 +116,40 @@
   padding-right: 4px;
 }
 
+.catalog-store-notice {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 4px 0 22px;
+  padding: 16px 18px;
+  border: 1px solid rgba(56, 112, 200, 0.2);
+  border-radius: 12px;
+  background: #eef4ff;
+  color: #294f88;
+}
+
+.catalog-store-notice > i {
+  margin-top: 2px;
+  font-size: 1.25rem;
+}
+
+.catalog-store-notice strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #183153;
+}
+
+.catalog-store-notice p {
+  margin: 0 0 7px;
+  line-height: 1.5;
+  font-size: 0.84rem;
+}
+
+.catalog-store-notice span {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .filter-checkbox {
   display: inline-flex;
   align-items: center;

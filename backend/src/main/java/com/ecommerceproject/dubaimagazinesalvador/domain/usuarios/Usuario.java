@@ -43,8 +43,8 @@ public abstract class Usuario implements UserDetails {
     @Column(name = "id", updatable = false, nullable = false, columnDefinition = "VARCHAR(36)")
     @JdbcTypeCode(SqlTypes.VARCHAR)
     private UUID id;
-    private String login;
-    private String email;
+    @Column(name = "codigo_santri", nullable = false, unique = true)
+    private String codigoSantri;
     private String senha;
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
@@ -54,17 +54,11 @@ public abstract class Usuario implements UserDetails {
     @Column(name = "bloqueado_ate")
     private Instant bloqueadoAte;
     
-    public String getLogin() {
-        return login;
+    public String getCodigoSantri() {
+        return codigoSantri;
     }
-    public void setLogin(String login) {
-        this.login = login;
-    }
-    public String getEmail() {
-        return email;
-    }
-    public void setEmail(String email) {
-        this.email = email;
+    public void setCodigoSantri(String codigoSantri) {
+        this.codigoSantri = codigoSantri;
     }
     public String getSenha() {
         return senha;
@@ -79,9 +73,8 @@ public abstract class Usuario implements UserDetails {
         this.id = id;
     }
 
-    public Usuario(String login, String email, String senha, Role funcao){
-        this.login = login;
-        this.email = email;
+    public Usuario(String codigoSantri, String senha, Role funcao){
+        this.codigoSantri = codigoSantri;
         this.senha = senha;
         this.funcao = funcao;
     }
@@ -101,11 +94,7 @@ public abstract class Usuario implements UserDetails {
 
     @Override
     public String getUsername() {
-        if(this.login != null){
-            return this.login;
-        }else{
-            return this.email;
-        }
+        return this.codigoSantri;
     }
 
     @Override

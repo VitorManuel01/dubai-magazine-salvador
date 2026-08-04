@@ -1,6 +1,7 @@
 package com.ecommerceproject.dubaimagazinesalvador.infra.security;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,7 @@ public class TokenService {
             
             String token = JWT.create()
                                 .withIssuer("auth-api")
-                                .withSubject(usuario.getLogin())
-                                .withClaim("id", usuario.getId().toString())
+                                .withSubject(usuario.getId().toString())
                                 .withClaim("funcao", usuario.getFuncao().toString())
                                 .withExpiresAt(generateExpirationData())
                                 .sign(algorithm);
@@ -43,16 +43,17 @@ public class TokenService {
         }
     }
 
-    public String validateToken(String token){
+    public UUID validateToken(String token){
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
             token = token.trim();
-            return JWT.require(algorithm)
+            String subject = JWT.require(algorithm)
                     .withIssuer("auth-api")
                     .build()
                     .verify(token)
                     .getSubject();
-        } catch (JWTVerificationException e) {
+            return UUID.fromString(subject);
+        } catch (JWTVerificationException | IllegalArgumentException e) {
             return null;
         }
     }

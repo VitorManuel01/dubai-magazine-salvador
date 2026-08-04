@@ -6,6 +6,8 @@ import {
   IMAGEM_PRODUTO_PLACEHOLDER,
   resolverImagemProduto,
 } from '../utils/resolverImagemProduto';
+import DepoimentosClientes from '../components/home/DepoimentosClientes';
+import { useCategoriasPrincipais } from '../hooks/useCategoriasPrincipais';
 
 
 
@@ -18,6 +20,16 @@ type PromoSlide = {
   image: string;
 };
 
+const CATEGORIAS_DESTAQUE = [
+  { codigo: '034', icone: 'bi-tools' },
+  { codigo: '036', icone: 'bi-plug' },
+  { codigo: '042', icone: 'bi-lamp' },
+  { codigo: '115', icone: 'bi-pc-display' },
+  { codigo: '040', icone: 'bi-house-heart' },
+  { codigo: '026', icone: 'bi-basket' },
+  { codigo: '196', icone: 'bi-scooter' },
+];
+
 
 const Home: React.FC = () => {
 
@@ -27,6 +39,8 @@ const Home: React.FC = () => {
     error: erroSelecionados,
   } = useDadosProdutos(undefined, 0, 'publico', undefined, true);
   const { data: vitrines = [] } = useVitrinesHome();
+  const { data: categorias = [], isLoading: carregandoCategorias } =
+    useCategoriasPrincipais('publico');
 
   const [activeSlide, setActiveSlide] = useState(0);
   const [vitrineAtiva, setVitrineAtiva] = useState(0);
@@ -114,6 +128,10 @@ const Home: React.FC = () => {
 
 
   const featuredProducts = produtosSelecionados;
+  const categoriasDestaque = CATEGORIAS_DESTAQUE.flatMap((destaque) => {
+    const categoria = categorias.find((item) => item.codigo === destaque.codigo);
+    return categoria ? [{ ...categoria, icone: destaque.icone }] : [];
+  });
   const produtoVitrine = vitrine?.produtos.length
     ? vitrine.produtos[produtoVitrineAtivo % vitrine.produtos.length]
     : undefined;
@@ -125,12 +143,6 @@ const Home: React.FC = () => {
         </button>
 
         <div className="promo-carousel__viewport">
-          <div className="promo-ribbon" aria-hidden="true">
-            <div className="promo-ribbon__inner">
-              <span className="ribbon-brand">Dubai</span>
-              <span className="ribbon-title">AURUM COLLECTION</span>
-            </div>
-          </div>
           {promoSlides.map((slide, index) => (
             <article
               key={`${slide.title}-${index}`}
@@ -161,6 +173,54 @@ const Home: React.FC = () => {
           ))}
         </div>
       </section>
+
+      <section className="store-benefits" aria-label="Diferenciais da Dubai Magazine">
+        <article className="store-benefit">
+          <i className="bi bi-credit-card-2-front" aria-hidden="true" />
+          <div>
+            <strong>Parcele suas compras</strong>
+            <span>Em até 10x sem juros</span>
+          </div>
+        </article>
+        <article className="store-benefit">
+          <i className="bi bi-award" aria-hidden="true" />
+          <div>
+            <strong>Os melhores produtos</strong>
+            <span>Você só encontra aqui</span>
+          </div>
+        </article>
+        <Link className="store-benefit" to="/contato">
+          <i className="bi bi-chat-dots" aria-hidden="true" />
+          <div>
+            <strong>Ficou com dúvida?</strong>
+            <span>Entre em contato conosco!</span>
+          </div>
+        </Link>
+      </section>
+
+      <nav className="home-category-shortcuts" aria-label="Categorias em destaque">
+        <div className="home-category-shortcuts__track">
+          {categoriasDestaque.map((categoria) => (
+            <Link
+              className="home-category-shortcut"
+              key={categoria.codigo}
+              to={`/produtos?categoria=${encodeURIComponent(categoria.codigo)}`}
+              title={`Ver produtos de ${categoria.nome}`}
+            >
+              <span className="home-category-shortcut__icon" aria-hidden="true">
+                <i className={`bi ${categoria.icone}`} />
+              </span>
+              <span className="home-category-shortcut__name">{categoria.nome}</span>
+            </Link>
+          ))}
+          {carregandoCategorias && Array.from({ length: 7 }, (_, indice) => (
+            <span className="home-category-shortcut home-category-shortcut--loading" key={indice}>
+              <span className="home-category-shortcut__icon" />
+              <span className="home-category-shortcut__name">Carregando...</span>
+            </span>
+          ))}
+        </div>
+      </nav>
 
       {vitrine && (
         <section className="catalog-highlight" aria-live="polite" key={vitrine.id}>
@@ -246,6 +306,16 @@ const Home: React.FC = () => {
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      <DepoimentosClientes />
+
+      <section className="instagram-callout" aria-label="Instagram da Dubai Magazine">
+        <i className="bi bi-instagram" aria-hidden="true" />
+        <div>
+          <span>Siga-nos no Instagram</span>
+          <a href="https://www.instagram.com/dubai.magazine/" target="_blank" rel="noreferrer">@dubai.magazine</a>
         </div>
       </section>
     </div>

@@ -1,116 +1,151 @@
 package com.ecommerceproject.dubaimagazinesalvador.controller;
 
 import java.time.Instant;
+import java.util.Locale;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.validation.annotation.Validated;
-import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Administrador;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.AuthenticationDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.LoginResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.RegisterAdmDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Role;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Usuario;
 import com.ecommerceproject.dubaimagazinesalvador.infra.security.TokenService;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.AdministradorRespository;
+import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
+import com.ecommerceproject.dubaimagazinesalvador.services.LimitadorOrigemLoginService;
+import com.ecommerceproject.dubaimagazinesalvador.services.LimitadorOrigemLoginService.EstadoLimite;
 import com.ecommerceproject.dubaimagazinesalvador.services.TentativasLoginService;
-import com.ecommerceproject.dubaimagazinesalvador.services.TentativasLoginService.EstadoBloqueio;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("auth")
-// @CrossOrigin(origins = "http://localhost:5173",  allowCredentials = "true")
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-    @Autowired
-    private AdministradorRespository admRepository;
-    @Autowired
-    private TokenService tokenService;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private TentativasLoginService tentativasLoginService;
+    private static final String ERRO_CREDENCIAIS = "Código Santri ou senha inválidos.";
+    private static final String ERRO_LIMITE = "Muitas tentativas. Aguarde antes de tentar novamente.";
+
+    private final AuthenticationManager authenticationManager;
+    private final AdministradorRespository administradorRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final TokenService tokenService;
+    private final PasswordEncoder passwordEncoder;
+    private final TentativasLoginService tentativasLoginService;
+    private final LimitadorOrigemLoginService limitadorOrigemLoginService;
+
+    public AuthController(
+            AuthenticationManager authenticationManager,
+            AdministradorRespository administradorRepository,
+            UsuarioRepository usuarioRepository,
+            TokenService tokenService,
+            PasswordEncoder passwordEncoder,
+            TentativasLoginService tentativasLoginService,
+            LimitadorOrigemLoginService limitadorOrigemLoginService
+    ) {
+        this.authenticationManager = authenticationManager;
+        this.administradorRepository = administradorRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.tokenService = tokenService;
+        this.passwordEncoder = passwordEncoder;
+        this.tentativasLoginService = tentativasLoginService;
+        this.limitadorOrigemLoginService = limitadorOrigemLoginService;
+    }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody AuthenticationDTO data) {
-        String identificador = data.emailOrLogin().trim();
-        EstadoBloqueio bloqueioAtual = tentativasLoginService.verificarBloqueio(identificador);
-        if (bloqueioAtual.bloqueado()) {
-            return respostaBloqueada(bloqueioAtual.bloqueadoAte());
+    public ResponseEntity<?> login(
+            @Valid @RequestBody AuthenticationDTO data,
+            HttpServletRequest request
+    ) {
+        String codigoSantri = normalizarCodigoSantri(data.codigoSantri());
+        String enderecoIp = request.getRemoteAddr();
+        String dispositivo = request.getHeader(LimitadorOrigemLoginService.CABECALHO_DISPOSITIVO);
+
+        EstadoLimite limiteAtual = limitadorOrigemLoginService.reservarTentativa(
+                enderecoIp,
+                dispositivo
+        );
+        if (limiteAtual.limitado()) {
+            return respostaLimitada(limiteAtual.tentarNovamenteEm());
         }
 
         try {
-            var usernamePassword = new UsernamePasswordAuthenticationToken(identificador, data.senha());
-            var auth = this.authenticationManager.authenticate(usernamePassword);
-            Usuario usuario = (Usuario) auth.getPrincipal();
-            tentativasLoginService.registrarSucesso(usuario.getId());
-            var token = tokenService.generateToken(usuario);
-            return ResponseEntity.ok(new LoginResponseDTO(token));
-        } catch (AuthenticationException e) {
-            EstadoBloqueio bloqueio = tentativasLoginService.registrarFalha(identificador);
-            if (bloqueio.bloqueado()) {
-                return respostaBloqueada(bloqueio.bloqueadoAte());
-            }
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    new LoginErroDTO("Login ou senha inválidos.", null)
+            var credenciais = new UsernamePasswordAuthenticationToken(
+                    codigoSantri,
+                    data.senha()
             );
+            var autenticacao = authenticationManager.authenticate(credenciais);
+            Usuario usuario = (Usuario) autenticacao.getPrincipal();
+            tentativasLoginService.registrarSucesso(usuario.getId());
+            limitadorOrigemLoginService.registrarSucesso(enderecoIp, dispositivo);
+            return ResponseEntity.ok(new LoginResponseDTO(tokenService.generateToken(usuario)));
+        } catch (AuthenticationException e) {
+            tentativasLoginService.registrarFalha(codigoSantri);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginErroDTO(ERRO_CREDENCIAIS));
         }
     }
 
-    private ResponseEntity<LoginErroDTO> respostaBloqueada(Instant bloqueadoAte) {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(
-                new LoginErroDTO(
-                        "Muitas tentativas de login. Tente novamente em 20 minutos.",
-                        bloqueadoAte
-                )
+    private ResponseEntity<LoginErroDTO> respostaLimitada(Instant tentarNovamenteEm) {
+        long milissegundos = Math.max(
+                0,
+                tentarNovamenteEm.toEpochMilli() - Instant.now().toEpochMilli()
         );
+        long segundos = Math.max(1, (milissegundos + 999) / 1_000);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(segundos))
+                .body(new LoginErroDTO(ERRO_LIMITE));
     }
 
-    public record LoginErroDTO(String erro, Instant bloqueadoAte) {
+    public record LoginErroDTO(String erro) {
     }
-    
-
 
     @PostMapping("/registerADM")
-    public ResponseEntity<String>  registerADM(@RequestBody @Validated RegisterAdmDTO dataAdm) {
-        if (this.admRepository.findByEmail(dataAdm.email()) != null) {
-            return ResponseEntity.badRequest().build();
-        } else if (this.admRepository.findByLogin(dataAdm.login()) != null) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<Void> registerADM(@Valid @RequestBody RegisterAdmDTO data) {
+        String codigoSantri = normalizarCodigoSantri(data.codigoSantri());
+        if (usuarioRepository.existsByCodigoSantriIgnoreCase(codigoSantri)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Código Santri já cadastrado."
+            );
         }
 
-        String encryptedPassword = passwordEncoder.encode(dataAdm.senha());
+        Administrador administrador = new Administrador();
+        administrador.setCodigoSantri(codigoSantri);
+        administrador.setSenha(passwordEncoder.encode(data.senha()));
+        administrador.setFuncao(Role.ROLE_ADMIN);
+        administrador.setAdmin(true);
+        administrador.setNome(data.nome().trim());
+        administrador.setCPF(data.CPF());
+        administrador.setSexo(textoOpcional(data.sexo()).toUpperCase(Locale.ROOT));
+        administrador.setDataNascimento(data.dataNascimento());
+        administrador.setCEP(textoOpcional(data.CEP()));
+        administrador.setEndereco(textoOpcional(data.endereco()));
+        administrador.setBairro(textoOpcional(data.bairro()));
+        administrador.setTelefone(textoOpcional(data.telefone()));
+        administradorRepository.save(administrador);
 
-        // Criar um novo Administrador, que é um Usuario
-        Administrador novoAdministrador = new Administrador();
-        novoAdministrador.setLogin(dataAdm.login());
-        novoAdministrador.setEmail(dataAdm.email());
-        novoAdministrador.setSenha(encryptedPassword);
-        novoAdministrador.setFuncao(dataAdm.funcao());
-        novoAdministrador.setAdmin(dataAdm.admin());
-        novoAdministrador.setNome(dataAdm.nome());
-        novoAdministrador.setCPF(dataAdm.CPF());
-        novoAdministrador.setSexo(dataAdm.sexo());
-        novoAdministrador.setDataNascimento(dataAdm.dataNascimento());
-        novoAdministrador.setCEP(dataAdm.CEP());
-        novoAdministrador.setEndereco(dataAdm.endereco());
-        novoAdministrador.setBairro(dataAdm.bairro());
-        novoAdministrador.setTelefone(dataAdm.telefone());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 
-        // Salvar o novo Administrador (que também será salvo na tabela usuarios)
-        this.admRepository.save(novoAdministrador);
+    private String normalizarCodigoSantri(String codigoSantri) {
+        return codigoSantri.trim().toUpperCase(Locale.ROOT);
+    }
 
-        return ResponseEntity.ok().build();
+    private String textoOpcional(String valor) {
+        return valor == null ? "" : valor.trim();
     }
 }
