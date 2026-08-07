@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.16</version>
+        <version>4.1.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.ecommerceproject</groupId>
@@ -15,7 +15,7 @@
     <name>dubaiMagazineSalvador</name>
     <description>Catálogo digital da Dubai Magazine Salvador</description>
     <properties>
-        <java.version>22</java.version>
+        <java.version>25</java.version>
     </properties>
 
     <dependencies>
@@ -29,7 +29,6 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.2</version>
         </dependency>
 
         <dependency>
@@ -42,7 +41,6 @@
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-launcher</artifactId>
-            <version>1.11.2</version>
         </dependency>
 
         <dependency>
@@ -76,7 +74,6 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.46</version>
             <optional>true</optional>
         </dependency>
         <dependency>
@@ -138,9 +135,6 @@
                             <version>1.18.46</version>
                         </path>
                     </annotationProcessorPaths>
-                    <compilerArgs>
-                        <arg>--enable-preview</arg>
-                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>
