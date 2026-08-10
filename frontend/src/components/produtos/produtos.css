@@ -169,3 +169,27 @@
   color: #b42318;
   font-size: 0.75rem;
 }
+
+@media (max-width: 480px) {
+  .produto-card,
+  .produto-card .card-body,
+  .produto-admin-editor {
+    min-width: 0;
+  }
+
+  .produto-card .card-title,
+  .produto-card .list-unstyled,
+  .produto-image-input,
+  .produto-name-input {
+    overflow-wrap: anywhere;
+  }
+
+  .produto-admin-actions {
+    flex-wrap: wrap;
+  }
+
+  .produto-admin-actions .btn {
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+}

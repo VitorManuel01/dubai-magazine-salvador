@@ -196,4 +196,38 @@
   .employee-feedback {
     grid-column: auto;
   }
+
+  .account-page,
+  .employee-page {
+    width: min(100% - 24px, 1080px);
+    margin-top: 28px;
+  }
+
+  .account-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 18px;
+  }
+
+  .account-card > div,
+  .account-card p,
+  .employee-field {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .employee-form__actions button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .account-card {
+    grid-template-columns: 1fr;
+  }
+
+  .account-card > i:last-child {
+    display: none;
+  }
 }

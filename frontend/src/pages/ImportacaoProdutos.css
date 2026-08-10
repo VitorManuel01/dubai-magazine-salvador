@@ -250,6 +250,27 @@
   .import-submit {
     width: 100%;
   }
+
+  .import-card,
+  .import-result {
+    padding: 16px;
+  }
+
+  .import-file {
+    min-width: 0;
+    padding: 14px;
+  }
+
+  .import-file input[type="file"] {
+    width: 100%;
+    min-width: 0;
+    font-size: 0.75rem;
+  }
+
+  .import-heading__actions,
+  .import-heading__actions > * {
+    width: 100%;
+  }
 }
 .import-heading__actions {
   display: flex;

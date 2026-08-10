@@ -1,6 +1,9 @@
 .env
 .env.*
 !.env.example
+!frontend/.env.development
+!frontend/.env.preproduction
+!frontend/.env.production
 
 .idea/
 test-results/

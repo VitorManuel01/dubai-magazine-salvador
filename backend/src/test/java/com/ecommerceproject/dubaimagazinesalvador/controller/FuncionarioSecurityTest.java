@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,12 +16,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Funcionario;
@@ -53,16 +53,16 @@ class FuncionarioSecurityTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private FuncionarioRepository funcionarioRepository;
 
-    @MockBean
+    @MockitoBean
     private UsuarioRepository usuarioRepository;
 
-    @MockBean
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
 
-    @MockBean
+    @MockitoBean
     private TokenService tokenService;
 
     @Test
@@ -75,9 +75,9 @@ class FuncionarioSecurityTest {
     }
 
     @Test
-    @WithMockUser(roles = "FUNCIONARIO")
     void funcionarioNaoPodeCadastrarOutroFuncionario() throws Exception {
         mockMvc.perform(post("/funcionario")
+                        .with(user("funcionario").roles("FUNCIONARIO"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(FUNCIONARIO_VALIDO))
@@ -85,7 +85,6 @@ class FuncionarioSecurityTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void administradorCadastraFuncionarioComSenhaCriptografadaEFuncaoForcada() throws Exception {
         when(usuarioRepository.existsByCodigoSantriIgnoreCase("FUN-001"))
                 .thenReturn(false);
@@ -95,6 +94,7 @@ class FuncionarioSecurityTest {
                 .thenAnswer(invocacao -> invocacao.getArgument(0));
 
         mockMvc.perform(post("/funcionario")
+                        .with(user("administrador").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(FUNCIONARIO_VALIDO))
@@ -117,9 +117,9 @@ class FuncionarioSecurityTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void senhaFracaERejeitadaAntesDeSalvar() throws Exception {
         mockMvc.perform(post("/funcionario")
+                        .with(user("administrador").roles("ADMIN"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(FUNCIONARIO_VALIDO.replace("SenhaForte@2026", "123")))
@@ -130,9 +130,9 @@ class FuncionarioSecurityTest {
     }
 
     @Test
-    @WithMockUser(roles = "FUNCIONARIO")
     void funcionarioNaoPodeListarDadosDeOutrosFuncionarios() throws Exception {
-        mockMvc.perform(get("/funcionario"))
+        mockMvc.perform(get("/funcionario")
+                        .with(user("funcionario").roles("FUNCIONARIO")))
                 .andExpect(status().isForbidden());
     }
 }
