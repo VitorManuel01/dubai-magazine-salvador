@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { CategoriaCatalogo } from '../interface/DadosCategoria';
+import { categoriaPermitidaNoCatalogo } from '../utils/categoriasCatalogo';
 
 const fetchSubcategorias = async (
   categoriaPaiCodigo: string,
@@ -15,7 +16,9 @@ const fetchSubcategorias = async (
       },
     },
   );
-  return response.data;
+  return administracao
+    ? response.data
+    : response.data.filter(categoriaPermitidaNoCatalogo);
 };
 
 export function useSubcategorias(categoriaPaiCodigo?: string, perfil = 'publico') {

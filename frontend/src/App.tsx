@@ -132,7 +132,7 @@ function ConteudoAplicacao() {
         {areaAcesso ? null : areaVitrine ? (
           <header className="internal-header">
             <div className="internal-header__inner">
-              <Link className="brand-area" to="/vitrine-loja" aria-label="Dubai Magazine">
+              <Link className="brand-area" to="/" aria-label="Dubai Magazine">
                 <img className="brand-logo" src="/assets/branding/DubaiMagazine_Principal_Azul.png" alt="Dubai Magazine" />
               </Link>
               <div className="internal-header__title">

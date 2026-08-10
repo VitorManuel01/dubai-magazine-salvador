@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { CategoriaCatalogo } from '../interface/DadosCategoria';
+import { categoriaPermitidaNoCatalogo } from '../utils/categoriasCatalogo';
 
 const fetchCategoriasPrincipais = async (
   administracao: boolean,
@@ -14,7 +15,9 @@ const fetchCategoriasPrincipais = async (
       },
     },
   );
-  return response.data;
+  return administracao
+    ? response.data
+    : response.data.filter(categoriaPermitidaNoCatalogo);
 };
 
 export function useCategoriasPrincipais(perfil = 'publico') {

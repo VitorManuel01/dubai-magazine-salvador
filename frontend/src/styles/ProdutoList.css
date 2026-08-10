@@ -327,4 +327,54 @@
   .admin-actions .btn {
     width: 100%;
   }
+
+  .catalog-header {
+    gap: 14px;
+  }
+
+  .catalog-toolbar,
+  .catalog-sort,
+  .catalog-sort select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .catalog-store-notice {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .filter-card,
+  .catalog-results {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-checkbox span,
+  .catalog-results__bar span,
+  .catalog-description {
+    overflow-wrap: anywhere;
+  }
+
+  .catalog-pagination {
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+
+  .catalog-pagination span {
+    flex: 1 0 100%;
+    order: -1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .catalog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .catalog-pagination button {
+    flex: 1;
+    justify-content: center;
+  }
 }

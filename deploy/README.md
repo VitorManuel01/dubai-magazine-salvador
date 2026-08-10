@@ -1,43 +1,92 @@
-# Preparação para hospedagem segura
+# Ambientes e HTTPS
 
-Esta pasta contém somente modelos. Nada aqui altera o desenvolvimento local, que continua usando:
+O navegador usa três configurações de ambiente. Pré-produção e produção acessam a API por
+`/api`, na mesma origem HTTPS do site. Somente o proxy conversa com o Spring Boot pela porta
+interna `8081`.
 
-```properties
-VITE_API_BASE_URL=http://localhost:8081
-CORS_ALLOWED_ORIGINS=http://localhost:5173
-REQUIRE_HTTPS=false
+| Ambiente | Frontend | Backend | Transporte externo |
+|---|---|---|---|
+| Desenvolvimento | `http://172.16.0.11:5173` | `http://172.16.0.11:8081` | HTTP restrito à rede local |
+| Pré-produção | URL aleatória `*.trycloudflare.com` | `127.0.0.1:8081` | HTTPS do Cloudflare |
+| Produção | novo domínio | endereço interno da hospedagem | HTTPS do domínio |
+
+## 1. Desenvolvimento
+
+No backend, use o perfil padrão `development`:
+
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
 ```
 
-## Produção com Nginx
+No frontend:
 
-O modelo `nginx/dubai-magazine.conf.example` foi preparado para:
-
-- servir o build do frontend como SPA;
-- redirecionar HTTP para HTTPS;
-- encaminhar `/api/` ao Spring Boot na porta interna `8081`;
-- informar corretamente ao Spring que a conexão externa usa HTTPS;
-- limitar o upload a 20 MB e adicionar cabeçalhos básicos de segurança.
-
-Quando houver domínio e servidor:
-
-1. Aponte o DNS do domínio para o servidor.
-2. Instale Nginx e Certbot conforme a documentação da distribuição do servidor.
-3. Gere um certificado confiável para o domínio com Let's Encrypt/Certbot.
-4. Substitua `DOMINIO_EXEMPLO` e confirme os caminhos do certificado no modelo.
-5. Gere o frontend com `VITE_API_BASE_URL=https://DOMINIO_EXEMPLO/api`.
-6. Configure o backend:
-
-```properties
-CORS_ALLOWED_ORIGINS=https://DOMINIO_EXEMPLO
-REQUIRE_HTTPS=true
+```powershell
+cd frontend
+npm run dev
 ```
 
-7. Valide a configuração do Nginx antes de recarregá-lo.
+Acesse `http://172.16.0.11:5173`. Se o IP da máquina mudar, atualize
+`frontend/.env.development` e `CORS_ALLOWED_ORIGINS` no `.env` do backend.
 
-Não habilite o bloco HTTPS antes de o certificado existir, pois o Nginx não iniciará se os arquivos indicados não estiverem disponíveis.
+## 2. Pré-produção com Quick Tunnel
 
-## Certificado autoassinado
+O Quick Tunnel aponta somente para o preview do frontend. O preview encaminha `/api` para
+`127.0.0.1:8081`; portanto, não é necessário abrir um segundo túnel nem copiar a URL aleatória
+para os arquivos `.env`.
 
-Um certificado autoassinado é gratuito, mas os navegadores não confiam nele por padrão. Ele exige instalar manualmente a autoridade/certificado em cada computador e celular que acessar o sistema. É aceitável para testes ou uma rede interna totalmente controlada, mas não é indicado para um site público.
+Terminal 1 — backend protegido por HTTPS externo:
 
-Para produção pública, prefira um certificado confiável e renovado automaticamente pelo Let's Encrypt.
+```powershell
+cd backend
+$env:SPRING_PROFILES_ACTIVE='preproduction'
+.\mvnw.cmd spring-boot:run
+```
+
+Terminal 2 — build e preview:
+
+```powershell
+cd frontend
+npm run build:preproduction
+npm run preview:preproduction
+```
+
+Terminal 3 — túnel temporário:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:4173
+```
+
+Abra a URL HTTPS gerada pelo `cloudflared`. O endereço muda quando o túnel é reiniciado.
+No modo de pré-produção, frontend e backend escutam apenas em `127.0.0.1`; o acesso externo
+acontece exclusivamente pelo túnel HTTPS.
+
+## 3. Produção na Locaweb
+
+Gere o frontend com:
+
+```powershell
+cd frontend
+npm run build:production
+```
+
+Entregue o conteúdo de `frontend/dist` e o backend empacotado à equipe de TI. O ambiente da
+Locaweb deverá:
+
+1. servir o frontend por HTTPS;
+2. encaminhar `https://DOMINIO/api/*` para o Spring Boot, removendo o prefixo `/api`;
+3. enviar `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-Port` e `X-Forwarded-For`;
+4. executar o backend com `SPRING_PROFILES_ACTIVE=production`;
+5. fornecer banco, diretório persistente de imagens e segredos por variáveis de ambiente;
+6. impedir acesso público direto à porta `8081`.
+
+O modelo em `nginx/dubai-magazine.conf.example` demonstra o contrato esperado pelo proxy.
+Caso a Locaweb use outro proxy, a equipe pode reproduzir as mesmas rotas e cabeçalhos.
+
+## Observações de segurança
+
+- TLS termina no Cloudflare ou no proxy da hospedagem; o salto para `127.0.0.1:8081` pode usar
+  HTTP porque não sai da máquina.
+- O Spring confia em cabeçalhos encaminhados somente nos perfis que ficam atrás do proxy.
+- Imagens externas em `http://` são rejeitadas quando o site está em HTTPS, evitando conteúdo misto.
+- Variáveis `VITE_*` são públicas e nunca devem conter senhas, tokens ou chaves privadas.

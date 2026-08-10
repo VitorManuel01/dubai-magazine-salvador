@@ -5,14 +5,17 @@ const enderecoConfigurado = import.meta.env.VITE_API_BASE_URL?.trim();
 const enderecoPadrao = import.meta.env.DEV
     ? 'http://localhost:8081'
     : window.location.origin;
+const exigirHttps = import.meta.env.VITE_REQUIRE_HTTPS === 'true';
+
+export const APP_ENV = import.meta.env.VITE_APP_ENV || import.meta.env.MODE;
 
 export const API_BASE_URL = (enderecoConfigurado || enderecoPadrao).replace(/\/$/, '');
 
 const urlApi = new URL(API_BASE_URL, window.location.origin);
 const destinoLocal = ['localhost', '127.0.0.1', '[::1]'].includes(urlApi.hostname);
 
-if (import.meta.env.PROD && urlApi.protocol !== 'https:' && !destinoLocal) {
-    throw new Error('A API deve utilizar HTTPS fora do ambiente local.');
+if (exigirHttps && urlApi.protocol !== 'https:' && !destinoLocal) {
+    throw new Error(`A API deve utilizar HTTPS no ambiente ${APP_ENV}.`);
 }
 
 axios.defaults.baseURL = API_BASE_URL;

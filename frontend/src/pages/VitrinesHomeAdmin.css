@@ -165,4 +165,27 @@
   .vitrine-admin-editor__actions {
     grid-column: auto;
   }
+
+  .vitrine-admin-page {
+    width: min(100% - 24px, 1180px);
+  }
+
+  .vitrine-admin-editor,
+  .vitrine-admin-list {
+    padding: 16px;
+  }
+
+  .vitrine-admin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vitrine-admin-editor__actions,
+  .vitrine-admin-card__actions {
+    flex-wrap: wrap;
+  }
+
+  .vitrine-admin-editor__actions > *,
+  .vitrine-admin-card__actions > * {
+    flex: 1 1 140px;
+  }
 }

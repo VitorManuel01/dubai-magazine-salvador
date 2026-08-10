@@ -1,4 +1,10 @@
-import { type FormEvent, useState } from 'react';
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios, { AxiosError } from 'axios';
 import { Link } from 'react-router-dom';
@@ -8,6 +14,8 @@ import {
   type VitrineLoja,
   type VitrineLojaRequest,
 } from '../interface/VitrineLoja';
+import { resolverImagemProduto } from '../utils/resolverImagemProduto';
+import { validarImagemProduto } from '../utils/validacaoArquivos';
 import './VitrineLojaAdmin.css';
 
 interface SecaoFormulario {
@@ -16,13 +24,33 @@ interface SecaoFormulario {
   ordem: number;
 }
 
+interface ImagemFormulario {
+  id: string;
+  urlExistente: string;
+  arquivo?: File;
+  previewUrl?: string;
+  erro: string;
+}
+
 interface OpcaoFormulario {
   produtoCodigoSantri: string;
   rotuloOpcao: string;
   ordem: number;
-  imagensTexto: string;
+  imagens: ImagemFormulario[];
   secoes: SecaoFormulario[];
 }
+
+interface ImagemVitrineLojaUpload {
+  url: string;
+}
+
+let proximoIdImagem = 0;
+
+const novaImagem = (urlExistente = ''): ImagemFormulario => ({
+  id: `foto-vitrine-${Date.now()}-${proximoIdImagem++}`,
+  urlExistente,
+  erro: '',
+});
 
 interface VitrineFormulario {
   ativo: boolean;
@@ -39,7 +67,7 @@ const novaOpcao = (ordem = 0): OpcaoFormulario => ({
   produtoCodigoSantri: '',
   rotuloOpcao: '',
   ordem,
-  imagensTexto: '',
+  imagens: [],
   secoes: [novaSecao()],
 });
 
@@ -61,6 +89,24 @@ function VitrineLojaAdmin() {
   const [paginaProdutos, setPaginaProdutos] = useState(0);
   const [mensagem, setMensagem] = useState('');
   const [mensagemErro, setMensagemErro] = useState('');
+  const previewsTemporarios = useRef(new Set<string>());
+
+  const liberarPreview = (previewUrl?: string) => {
+    if (!previewUrl || !previewsTemporarios.current.has(previewUrl)) return;
+    URL.revokeObjectURL(previewUrl);
+    previewsTemporarios.current.delete(previewUrl);
+  };
+
+  const liberarPreviewsFormulario = (dadosFormulario: VitrineFormulario) => {
+    dadosFormulario.opcoes.forEach((opcao) => {
+      opcao.imagens.forEach((imagem) => liberarPreview(imagem.previewUrl));
+    });
+  };
+
+  useEffect(() => () => {
+    previewsTemporarios.current.forEach((preview) => URL.revokeObjectURL(preview));
+    previewsTemporarios.current.clear();
+  }, []);
 
   const vitrinesQuery = useQuery({
     queryKey: ['admin-vitrine-loja'],
@@ -88,7 +134,41 @@ function VitrineLojaAdmin() {
   });
 
   const salvar = useMutation({
-    mutationFn: async (dados: VitrineLojaRequest) => {
+    mutationFn: async (dadosFormulario: VitrineFormulario) => {
+      const opcoes = await Promise.all(dadosFormulario.opcoes.map(async (opcao, indice) => {
+        const imagens = await Promise.all(
+          opcao.imagens
+            .filter((imagem) => imagem.arquivo || imagem.urlExistente)
+            .map(async (imagem) => {
+              if (!imagem.arquivo) return imagem.urlExistente;
+              const formData = new FormData();
+              formData.append('imagem', imagem.arquivo);
+              return (
+                await axios.post<ImagemVitrineLojaUpload>(
+                  '/admin/vitrine-loja/imagens',
+                  formData
+                )
+              ).data.url;
+            })
+        );
+
+        return {
+          produtoCodigoSantri: opcao.produtoCodigoSantri.trim(),
+          rotuloOpcao: opcao.rotuloOpcao.trim(),
+          ordem: indice,
+          imagens,
+          secoes: opcao.secoes.map((secao, ordem) => ({
+            titulo: secao.titulo.trim(),
+            conteudo: secao.conteudo.trim(),
+            ordem,
+          })),
+        };
+      }));
+      const dados: VitrineLojaRequest = {
+        ativo: dadosFormulario.ativo,
+        opcoes,
+      };
+
       if (editandoId === null) {
         return (await axios.post<VitrineLoja>('/admin/vitrine-loja', dados)).data;
       }
@@ -97,7 +177,8 @@ function VitrineLojaAdmin() {
         dados
       )).data;
     },
-    onSuccess: async () => {
+    onSuccess: async (_vitrineSalva, dadosFormulario) => {
+      liberarPreviewsFormulario(dadosFormulario);
       setFormulario(formularioInicial());
       setEditandoId(null);
       setMensagemErro('');
@@ -173,11 +254,86 @@ function VitrineLojaAdmin() {
   };
 
   const removerOpcao = (indice: number) => {
+    formulario.opcoes[indice]?.imagens.forEach((imagem) => {
+      liberarPreview(imagem.previewUrl);
+    });
     setFormulario((atual) => ({
       ...atual,
       opcoes: atual.opcoes
         .filter((_, posicao) => posicao !== indice)
         .map((opcao, ordem) => ({ ...opcao, ordem })),
+    }));
+  };
+
+  const adicionarImagem = (indiceOpcao: number) => {
+    setFormulario((atual) => ({
+      ...atual,
+      opcoes: atual.opcoes.map((opcao, posicao) => (
+        posicao === indiceOpcao && opcao.imagens.length < 20
+          ? { ...opcao, imagens: [...opcao.imagens, novaImagem()] }
+          : opcao
+      )),
+    }));
+  };
+
+  const selecionarImagem = async (
+    indiceOpcao: number,
+    indiceImagem: number,
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const arquivo = event.target.files?.[0];
+    if (!arquivo) return;
+
+    const erro = await validarImagemProduto(arquivo);
+    if (erro) {
+      setFormulario((atual) => ({
+        ...atual,
+        opcoes: atual.opcoes.map((opcao, posicaoOpcao) => (
+          posicaoOpcao === indiceOpcao
+            ? {
+                ...opcao,
+                imagens: opcao.imagens.map((imagem, posicaoImagem) => (
+                  posicaoImagem === indiceImagem ? { ...imagem, erro } : imagem
+                )),
+              }
+            : opcao
+        )),
+      }));
+      event.target.value = '';
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(arquivo);
+    previewsTemporarios.current.add(previewUrl);
+    setFormulario((atual) => ({
+      ...atual,
+      opcoes: atual.opcoes.map((opcao, posicaoOpcao) => {
+        if (posicaoOpcao !== indiceOpcao) return opcao;
+        return {
+          ...opcao,
+          imagens: opcao.imagens.map((imagem, posicaoImagem) => {
+            if (posicaoImagem !== indiceImagem) return imagem;
+            liberarPreview(imagem.previewUrl);
+            return { ...imagem, arquivo, previewUrl, erro: '' };
+          }),
+        };
+      }),
+    }));
+  };
+
+  const removerImagem = (indiceOpcao: number, indiceImagem: number) => {
+    const imagem = formulario.opcoes[indiceOpcao]?.imagens[indiceImagem];
+    liberarPreview(imagem?.previewUrl);
+    setFormulario((atual) => ({
+      ...atual,
+      opcoes: atual.opcoes.map((opcao, posicaoOpcao) => (
+        posicaoOpcao === indiceOpcao
+          ? {
+              ...opcao,
+              imagens: opcao.imagens.filter((_, posicao) => posicao !== indiceImagem),
+            }
+          : opcao
+      )),
     }));
   };
 
@@ -212,27 +368,15 @@ function VitrineLojaAdmin() {
     setMensagem('');
     setMensagemErro('');
 
-    const dados: VitrineLojaRequest = {
-      ativo: formulario.ativo,
-      opcoes: formulario.opcoes.map((opcao, indice) => ({
-        produtoCodigoSantri: opcao.produtoCodigoSantri.trim(),
-        rotuloOpcao: opcao.rotuloOpcao.trim(),
-        ordem: indice,
-        imagens: opcao.imagensTexto
-          .split(/\r?\n/)
-          .map((imagem) => imagem.trim())
-          .filter(Boolean),
-        secoes: opcao.secoes.map((secao, ordem) => ({
-          titulo: secao.titulo.trim(),
-          conteudo: secao.conteudo.trim(),
-          ordem,
-        })),
-      })),
-    };
-    salvar.mutate(dados);
+    if (formulario.opcoes.some((opcao) => opcao.imagens.some((imagem) => imagem.erro))) {
+      setMensagemErro('Corrija as imagens inválidas antes de salvar a vitrine.');
+      return;
+    }
+    salvar.mutate(formulario);
   };
 
   const editar = (vitrine: VitrineLoja) => {
+    liberarPreviewsFormulario(formulario);
     setEditandoId(vitrine.id);
     setFormulario({
       ativo: vitrine.ativo,
@@ -240,7 +384,7 @@ function VitrineLojaAdmin() {
         produtoCodigoSantri: opcao.produto.codigoSantri,
         rotuloOpcao: opcao.rotuloOpcao,
         ordem: opcao.ordem,
-        imagensTexto: opcao.imagens.join('\n'),
+        imagens: opcao.imagens.map((imagem) => novaImagem(imagem)),
         secoes: opcao.secoes.map((secao) => ({
           titulo: secao.titulo,
           conteudo: secao.conteudo,
@@ -254,6 +398,7 @@ function VitrineLojaAdmin() {
   };
 
   const cancelar = () => {
+    liberarPreviewsFormulario(formulario);
     setEditandoId(null);
     setFormulario(formularioInicial());
     setMensagem('');
@@ -405,23 +550,81 @@ function VitrineLojaAdmin() {
                       placeholder="Ex.: Azul, Preto, 4 lugares"
                     />
                   </label>
-                  <label className="loja-admin-field-wide">
-                    <span>Imagens</span>
-                    <textarea
-                      value={opcao.imagensTexto}
-                      rows={4}
-                      onChange={(event) => atualizarOpcao(
-                        indiceOpcao,
-                        'imagensTexto',
-                        event.target.value
-                      )}
-                      placeholder={'Uma URL ou caminho por linha\n/uploads/produtos/exemplo.webp'}
-                    />
-                    <small>
-                      Informe uma imagem por linha. Se ficar vazio, será usada a imagem
-                      principal do produto.
-                    </small>
-                  </label>
+                  <div className="loja-admin-field-wide loja-admin-images-field">
+                    <div className="loja-admin-images-heading">
+                      <div>
+                        <span>Fotos da vitrine</span>
+                        <small>
+                          Se nenhuma foto for adicionada, será usada a imagem principal
+                          do produto.
+                        </small>
+                      </div>
+                      <button
+                        type="button"
+                        className="loja-admin-secondary-button"
+                        onClick={() => adicionarImagem(indiceOpcao)}
+                        disabled={opcao.imagens.length >= 20 || salvar.isPending}
+                      >
+                        <i className="bi bi-image" />
+                        Adicionar foto
+                      </button>
+                    </div>
+
+                    {opcao.imagens.length > 0 && (
+                      <div className="loja-admin-images-grid">
+                        {opcao.imagens.map((imagem, indiceImagem) => {
+                          const preview = imagem.previewUrl
+                            ?? (imagem.urlExistente
+                              ? resolverImagemProduto(imagem.urlExistente)
+                              : '');
+                          return (
+                            <article className="loja-admin-image-card" key={imagem.id}>
+                              <button
+                                type="button"
+                                className="loja-admin-image-remove"
+                                onClick={() => removerImagem(indiceOpcao, indiceImagem)}
+                                disabled={salvar.isPending}
+                                aria-label={`Remover foto ${indiceImagem + 1}`}
+                              >
+                                <i className="bi bi-x-lg" />
+                              </button>
+
+                              <div className="loja-admin-image-preview">
+                                {preview ? (
+                                  <img src={preview} alt={`Prévia da foto ${indiceImagem + 1}`} />
+                                ) : (
+                                  <i className="bi bi-image" aria-hidden="true" />
+                                )}
+                              </div>
+
+                              <label className="loja-admin-image-selector">
+                                <i className="bi bi-upload" />
+                                <span>{preview ? 'Trocar foto' : 'Selecionar imagem'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  onChange={(event) => selecionarImagem(
+                                    indiceOpcao,
+                                    indiceImagem,
+                                    event
+                                  )}
+                                  disabled={salvar.isPending}
+                                />
+                              </label>
+                              <small className="loja-admin-image-name">
+                                {imagem.arquivo?.name || (imagem.urlExistente
+                                  ? `Foto ${indiceImagem + 1}`
+                                  : 'JPG, PNG ou WEBP, até 5 MB')}
+                              </small>
+                              {imagem.erro && (
+                                <small className="loja-admin-image-error">{imagem.erro}</small>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="loja-admin-sections">

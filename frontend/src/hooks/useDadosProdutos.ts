@@ -2,6 +2,10 @@ import axios from "axios"
 import { ProdutoCatalogo } from "../interface/DadosProdutos"
 import { PaginaProdutos } from "../interface/PaginaProdutos";
 import { useQuery } from "@tanstack/react-query";
+import {
+    ehCodigoCategoriaInterna,
+    produtoPermitidoNoCatalogo,
+} from "../utils/categoriasCatalogo";
 
 
 
@@ -12,6 +16,18 @@ const fetchData = async (
     somenteDestaques = false,
     administracao = false,
 ): Promise<PaginaProdutos> => {
+    if (!administracao && ehCodigoCategoriaInterna(categoriaCodigo)) {
+        return {
+            content: [],
+            totalElements: 0,
+            totalPages: 0,
+            size: 24,
+            number: 0,
+            first: true,
+            last: true,
+        };
+    }
+
     const response = await axios.get<PaginaProdutos>(
         administracao ? "/admin/produtos" : "/produto",
         {
@@ -24,7 +40,18 @@ const fetchData = async (
             },
         },
     );
-    return response.data;
+    if (administracao) {
+        return response.data;
+    }
+
+    const produtosPermitidos = response.data.content.filter(produtoPermitidoNoCatalogo);
+    const removidosNestaPagina = response.data.content.length - produtosPermitidos.length;
+
+    return {
+        ...response.data,
+        content: produtosPermitidos,
+        totalElements: Math.max(0, response.data.totalElements - removidosNestaPagina),
+    };
 }
 
 
