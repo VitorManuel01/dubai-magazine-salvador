@@ -37,8 +37,11 @@ export function useAtualizarApresentacaoProduto() {
 
   return useMutation({
     mutationFn: atualizarApresentacao,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dados-produto'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['dados-produto'],
+        refetchType: 'all',
+      });
     },
   });
 }

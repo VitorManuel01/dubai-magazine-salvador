@@ -2,6 +2,7 @@ package com.ecommerceproject.dubaimagazinesalvador.services.produto;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Files;
@@ -76,5 +77,18 @@ class ArmazenamentoImagemProdutoServiceTest {
         );
 
         assertThrows(ResponseStatusException.class, () -> service.salvar(imagem));
+    }
+
+    @Test
+    void deveRemoverSomenteImagemComNomeGerenciado() throws Exception {
+        String identificador = "7abe08ab-cebd-4dd8-a6a9-6252faa1d9f8.webp";
+        Path imagem = diretorio.resolve(identificador);
+        Files.write(imagem, new byte[] { 1, 2, 3 });
+        ArmazenamentoImagemProdutoService service =
+                new ArmazenamentoImagemProdutoService(diretorio.toString());
+
+        service.removerSeGerenciada("/catalogo/imagens/" + identificador);
+
+        assertTrue(Files.notExists(imagem));
     }
 }

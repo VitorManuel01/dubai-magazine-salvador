@@ -88,7 +88,7 @@ export function PoliticaPrivacidade() {
           <div><dt>Usuário interno</dt><dd>Administrador ou funcionário autorizado que acessa áreas restritas por meio de login. O portal não oferece cadastro ou login para clientes.</dd></div>
           <div><dt>IP</dt><dd>Identificador numérico associado à conexão utilizada para acessar a internet.</dd></div>
           <div><dt>Logs</dt><dd>Registros técnicos de acesso, autenticação, erros e ações relevantes para a operação e segurança do portal.</dd></div>
-          <div><dt>Armazenamento local</dt><dd>Recurso do navegador usado para manter o token de autenticação, um identificador técnico do dispositivo e, no ambiente administrativo, os depoimentos configurados localmente.</dd></div>
+          <div><dt>Armazenamento local</dt><dd>Recurso do navegador usado para manter o token de autenticação e um identificador técnico do dispositivo.</dd></div>
         </dl>
       </section>
 
@@ -151,11 +151,11 @@ export function PoliticaPrivacidade() {
           Atualmente, o portal não utiliza cookies publicitários nem web beacons próprios para
           acompanhamento comercial. As áreas restritas utilizam armazenamento local do navegador
           para manter a sessão autenticada e reconhecer tecnicamente o dispositivo para fins de
-          segurança. O administrador também pode salvar três depoimentos da página inicial somente
-          no navegador em que realizou a edição.
+          segurança. Os conteúdos administrativos da página inicial são armazenados no banco de
+          dados da aplicação.
         </p>
         <p>
-          A limpeza dos dados do navegador encerra a sessão e pode apagar essas configurações locais.
+          A limpeza dos dados do navegador encerra a sessão local.
           Caso ferramentas de análise, publicidade ou novos cookies sejam adotados futuramente, esta
           política e, quando necessário, os mecanismos de consentimento serão atualizados.
         </p>
@@ -183,7 +183,7 @@ export function PoliticaPrivacidade() {
           <li>As compras são concluídas presencialmente na loja; clientes empresa devem entrar em contato pelos canais informados.</li>
           <li>Disponibilidade, estoque, imagens, características e preços podem ser atualizados ou corrigidos sem aviso prévio.</li>
           <li>É proibido tentar acessar áreas restritas sem autorização, explorar falhas, automatizar acessos abusivos ou prejudicar a disponibilidade do portal.</li>
-          <li>Links para serviços externos, como Instagram e futuros links de WhatsApp, estão sujeitos às políticas dessas plataformas.</li>
+          <li>Links para serviços externos, como Instagram e WhatsApp, estão sujeitos às políticas dessas plataformas.</li>
         </ul>
       </section>
 
@@ -215,7 +215,7 @@ export function Contato() {
     <PaginaInstitucional titulo="Contato" subtitulo="Fale com a equipe da Dubai Magazine Salvador.">
       <div className="institutional-contact-list">
         <a href="mailto:Contato@dubaimagazine.com.br"><i className="bi bi-envelope" /> Contato@dubaimagazine.com.br</a>
-        <span><i className="bi bi-whatsapp" /> (71) 99629-3392</span>
+        <a href="https://wa.me/message/7LVGHYAFP55NL1" target="_blank" rel="noreferrer"><i className="bi bi-whatsapp" /> (71) 99629-3392</a>
         <a href="tel:+557131839000"><i className="bi bi-telephone" /> (71) 3183-9000</a>
         <a href="https://www.instagram.com/dubai.magazine/" target="_blank" rel="noreferrer">
           <i className="bi bi-instagram" /> @dubai.magazine

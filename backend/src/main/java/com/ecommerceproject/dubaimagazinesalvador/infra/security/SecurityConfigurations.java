@@ -54,6 +54,11 @@ public class SecurityConfigurations {
                         .requestMatchers("/actuator", "/actuator/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/admin/importacoes/produtos").hasRole("ADMIN")
                         .requestMatchers("/admin/vitrines-home/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/banners-home/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/admin/depoimentos-home",
+                                "/admin/depoimentos-home/**"
+                        ).hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/admin/produtos").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/admin/categorias").hasRole("ADMIN")
                         .requestMatchers("/admin/vitrine-loja", "/admin/vitrine-loja/**")
@@ -66,6 +71,8 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.GET, "/produto").permitAll()
                         .requestMatchers(HttpMethod.GET, "/categoria").permitAll()
                         .requestMatchers(HttpMethod.GET, "/vitrines-home").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/banners-home").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/depoimentos-home").permitAll()
                         .requestMatchers(HttpMethod.GET, "/catalogo/imagens/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/produtos/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

@@ -30,6 +30,18 @@ function ProdutoList() {
   } = useDadosProdutos(categoriaFiltro, pagina, funcao || 'publico', busca);
   const { data: categoriasPrincipais = [] } =
     useCategoriasPrincipais(funcao || 'publico');
+  const administrador = funcao === 'ROLE_ADMIN';
+  const {
+    data: produtosSelecionados = [],
+    isLoading: carregandoProdutosSelecionados,
+  } = useDadosProdutos(
+    undefined,
+    0,
+    'ROLE_ADMIN',
+    undefined,
+    true,
+    administrador
+  );
   const {
     data: subcategorias = [],
     isLoading: carregandoSubcategorias,
@@ -131,9 +143,16 @@ function ProdutoList() {
           <strong>Catálogo da loja física</strong>
           <p>
             Este portal refere-se somente ao catálogo de itens disponíveis na loja. Para clientes
-            empresa, entre em contato pelo WhatsApp para realizar um pedido. Link em breve.
+            empresa, entre em contato para realizar um pedido.
           </p>
-          <span><i className="bi bi-shop" /> Compras somente na loja.</span>
+          <div className="catalog-store-notice__actions">
+            <a href="https://wa.me/message/7LVGHYAFP55NL1" target="_blank" rel="noreferrer">
+              <i className="bi bi-whatsapp" aria-hidden="true" />
+              Falar com a Dubai Magazine
+              <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
+            </a>
+            <span><i className="bi bi-shop" /> Compras somente na loja.</span>
+          </div>
         </div>
       </aside>
       <section className="catalog-header">
@@ -253,7 +272,7 @@ function ProdutoList() {
         <section className="catalog-results">
           <div className="catalog-results__bar">
             <span>
-              {funcao === 'ROLE_ADMIN'
+              {administrador
                 ? 'Visão administrativa: produtos visíveis e ocultos'
                 : 'Produtos disponíveis no site'}
             </span>
@@ -277,7 +296,11 @@ function ProdutoList() {
                     ? dadosProdutos.codigoSantri
                     : `${dadosProdutos.categoriaCodigo}-${dadosProdutos.nomeExibidoSite}-${index}`}
                 >
-                  <Produtos {...dadosProdutos} />
+                  <Produtos
+                    {...dadosProdutos}
+                    limiteDestaquesAtingido={produtosSelecionados.length >= 3}
+                    carregandoLimiteDestaques={carregandoProdutosSelecionados}
+                  />
                 </div>
               ))}
             </div>
@@ -309,7 +332,7 @@ function ProdutoList() {
         </section>
       </section>
 
-      {funcao === 'ROLE_ADMIN' && (
+      {administrador && (
         <div className="admin-actions">
           <Link className="btn btn-outline-primary" to="/admin/vitrine-loja">
             <i className="bi bi-display me-2" />

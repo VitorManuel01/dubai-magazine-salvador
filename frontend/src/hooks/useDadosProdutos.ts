@@ -61,6 +61,7 @@ export function useDadosProdutos(
     perfil = 'publico',
     busca?: string,
     somenteDestaques = false,
+    habilitado = true,
 ){
     const administracao = perfil === 'ROLE_ADMIN';
     const query = useQuery({
@@ -79,7 +80,10 @@ export function useDadosProdutos(
             pagina,
             perfil,
         ],
-        retry: 2
+        retry: 2,
+        enabled: habilitado,
+        staleTime: somenteDestaques ? 0 : undefined,
+        refetchOnMount: somenteDestaques ? 'always' : true,
     })
 
     return {

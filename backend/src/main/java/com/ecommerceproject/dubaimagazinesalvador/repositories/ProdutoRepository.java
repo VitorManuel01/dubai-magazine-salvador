@@ -12,6 +12,8 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 @Repository
 public interface ProdutoRepository extends JpaRepository<Produto, String> {
 
+    long countByDestaqueNaHomeTrue();
+
     @Query(
             value = """
             SELECT produto
