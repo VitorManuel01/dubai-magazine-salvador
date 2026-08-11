@@ -90,6 +90,36 @@ public class ArmazenamentoImagemProdutoService {
         }
     }
 
+    public void removerSeGerenciada(String imagemUrl) {
+        String nomeArquivo = extrairNomeGerenciado(imagemUrl);
+        if (nomeArquivo == null) {
+            return;
+        }
+
+        Path arquivo = diretorio.resolve(nomeArquivo).normalize();
+        if (!arquivo.startsWith(diretorio)) {
+            return;
+        }
+
+        try {
+            Files.deleteIfExists(arquivo);
+        } catch (IOException ignored) {
+            // A imagem nova já está persistida. Uma falha de limpeza não deve
+            // desfazer a troca do banner nem quebrar o catálogo.
+        }
+    }
+
+    private String extrairNomeGerenciado(String imagemUrl) {
+        if (imagemUrl == null || imagemUrl.isBlank()) {
+            return null;
+        }
+        int separador = imagemUrl.lastIndexOf('/');
+        String nomeArquivo = separador >= 0
+                ? imagemUrl.substring(separador + 1)
+                : imagemUrl;
+        return nomeArquivo.matches(ARQUIVO_PUBLICO_REGEX) ? nomeArquivo : null;
+    }
+
     private TipoImagem validar(MultipartFile imagem) {
         if (imagem == null || imagem.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A imagem está vazia.");

@@ -168,7 +168,7 @@ function ConteudoAplicacao() {
         <div className="top-strip">
           <div className="top-strip__inner">
             <div className="top-strip__group">
-              <span className="top-strip__item"><i className="bi bi-whatsapp" /> (71) 99629-3392</span>
+              <a className="top-strip__item" href="https://wa.me/message/7LVGHYAFP55NL1" target="_blank" rel="noreferrer"><i className="bi bi-whatsapp" /> (71) 99629-3392</a>
               <a className="top-strip__item" href="tel:+557131839000"><i className="bi bi-telephone" /> (71) 3183-9000</a>
               <a className="top-strip__item" href="mailto:Contato@dubaimagazine.com.br"><i className="bi bi-envelope" /> Contato@dubaimagazine.com.br</a>
             </div>
@@ -364,7 +364,7 @@ function ConteudoAplicacao() {
               <div className="footer-contact">
                 <div className="footer-col">
                   <h4>Entre em contato</h4>
-                  <p className="footer-meta"><i className="bi bi-whatsapp" /> (71) 99629-3392</p>
+                  <a className="footer-meta" href="https://wa.me/message/7LVGHYAFP55NL1" target="_blank" rel="noreferrer"><i className="bi bi-whatsapp" /> (71) 99629-3392</a>
                   <a className="footer-meta" href="tel:+557131839000"><i className="bi bi-telephone" /> (71) 3183-9000</a>
                   <a className="footer-meta" href="mailto:Contato@dubaimagazine.com.br"><i className="bi bi-envelope" /> Contato@dubaimagazine.com.br</a>
                   <a className="footer-meta" href="https://maps.app.goo.gl/8wzibo5BrmwbmK9H8" target="_blank" rel="noreferrer"><i className="bi bi-geo-alt" /> Rua do Uruguay, 63 - Uruguai, Salvador - BA, 40450-211</a>

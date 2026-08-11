@@ -1,50 +1,213 @@
-# React + TypeScript + Vite
+# Frontend — Dubai Magazine Salvador
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação React responsável pelo catálogo público, páginas institucionais, administração e vitrine
+interna da loja física.
 
-Currently, two official plugins are available:
+Consulte também o [README principal](../README.md) e a
+[documentação de arquitetura](../docs/ARQUITETURA.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
 
-## Expanding the ESLint configuration
+- React 18 e TypeScript;
+- Vite 8;
+- React Router;
+- TanStack Query;
+- Axios;
+- Bootstrap e Bootstrap Icons;
+- ESLint.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Instalação
 
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+O servidor usa a porta `5173`.
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+## Ambientes
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+| Arquivo | API | HTTPS obrigatório |
+|---|---|:---:|
+| `.env.development` | endereço local completo | não |
+| `.env.preproduction` | `/api` | sim |
+| `.env.production` | `/api` | sim |
+
+Variáveis disponíveis:
+
+```dotenv
+VITE_APP_ENV=development
+VITE_API_BASE_URL=http://IP_LOCAL:8081
+VITE_REQUIRE_HTTPS=false
 ```
+
+Toda variável `VITE_*` é pública. Não coloque senha, token, chave de API ou credencial de banco
+nesses arquivos.
+
+## Scripts
+
+```powershell
+npm run dev
+npm run lint
+npm run build
+npm run build:preproduction
+npm run build:production
+npm run preview:preproduction
+npm run preview
+```
+
+O build executa TypeScript antes do Vite. Erros de tipo impedem a geração do `dist`.
+
+## Proxy
+
+Em pré-produção e produção, a base da API é `/api`. O proxy do Vite para desenvolvimento/preview
+remove o prefixo e encaminha para `http://127.0.0.1:8081`.
+
+Quando o modo exige HTTPS, o proxy informa ao Spring Boot:
+
+```http
+X-Forwarded-Proto: https
+X-Forwarded-Port: 443
+```
+
+Em produção real, Nginx ou o proxy da hospedagem assume esse papel.
+
+## Estrutura
+
+```text
+src/
+├── components/    componentes reutilizáveis
+├── config/        Axios e configuração de integração
+├── context/       autenticação global
+├── hooks/         queries e mutations
+├── interface/     contratos TypeScript
+├── pages/         telas ligadas ao roteador
+├── styles/        estilos compartilhados
+└── utils/         arquivos, imagens, dispositivo e categorias
+```
+
+## Autenticação
+
+`AuthProvider` lê o JWT do `localStorage`, valida sua expiração e disponibiliza:
+
+- `isAuthenticated`;
+- `funcao`;
+- `login(token)`;
+- `logout()`.
+
+O interceptor do Axios adiciona o Bearer token e mantém cookies desativados. No login,
+`obterIdDispositivo()` cria um UUID persistente e envia `X-Device-Id`.
+
+`RotaAdmin` e `RotaVitrineInterna` controlam os redirecionamentos visuais. A autorização real é
+repetida no backend.
+
+## Catálogo
+
+O catálogo usa parâmetros na URL:
+
+```text
+/produtos?categoria=001&busca=termo&pagina=0
+```
+
+Visitantes recebem somente o DTO público. Administradores usam os endpoints administrativos e
+podem ver itens ocultos, editar o nome público, imagem, visibilidade e destaque.
+
+A categoria interna Uso e Consumo é excluída da interface pública por
+`src/utils/categoriasCatalogo.ts`.
+
+## Vitrines
+
+### Home
+
+Os cards de categoria vêm do backend. Título e descrição são editoriais; os produtos são
+selecionados dinamicamente a partir da categoria e das regras públicas.
+
+O carrossel sempre possui três posições. Enquanto uma posição não foi personalizada, ela usa o
+placeholder padrão. Administradores veem **Trocar imagem** diretamente no banner ativo e podem
+selecionar JPG, PNG ou WEBP de até 5 MB; visitantes e funcionários apenas visualizam os banners.
+
+### Loja física
+
+A consulta é exclusiva para administradores e funcionários. O administrador configura:
+
+- produtos que representam opções ou cores;
+- rótulo de cada opção;
+- até 20 fotos por opção;
+- seções de título e texto;
+- estado ativo ou rascunho.
+
+O botão **Adicionar foto** cria um card local. A imagem é validada, recebe prévia e só é enviada
+quando a vitrine é salva.
+
+## Assets
+
+Assets públicos ficam em `public/assets`:
+
+- `branding/`: logotipos;
+- `banners/`: reservado para banners estáticos não administrados pelo sistema;
+- `products/`: placeholders e imagens fixas;
+- demais subpastas: ícones e elementos editoriais.
+
+Imagens enviadas pelo administrador não pertencem ao frontend. Elas ficam no diretório
+`PRODUCT_IMAGES_DIR` do backend, inclusive os banners editáveis da home.
+
+Use caminhos absolutos públicos:
+
+```tsx
+<img src="/assets/branding/DubaiMagazine_Principal_Azul.png" alt="Dubai Magazine" />
+```
+
+## Responsividade
+
+O layout deve funcionar a partir de 320 px. Antes de concluir mudanças, verifique:
+
+- cabeçalho e barra de contatos;
+- navegação horizontal de categorias;
+- busca;
+- cards do catálogo;
+- paginação e filtros;
+- rodapé;
+- login e formulários administrativos;
+- galerias e botões da vitrine física.
+
+Não permita que um componente aumente `document.scrollWidth`. Rolagem horizontal só deve existir
+dentro de elementos explicitamente roláveis, como a faixa de categorias.
+
+## Validação de arquivos
+
+`src/utils/validacaoArquivos.ts` faz uma validação antecipada:
+
+- ODS: extensão, 20 MB e assinatura ZIP;
+- imagens: 5 MB, extensão e magic bytes de JPG, PNG ou WEBP.
+
+O backend repete a validação e é a autoridade final.
+
+## Adicionando uma tela
+
+1. crie os tipos de API em `interface`;
+2. extraia chamadas reutilizáveis para `hooks`;
+3. implemente a página em `pages`;
+4. adicione estilos responsivos;
+5. registre a rota em `App.tsx`;
+6. aplique `RotaAdmin` ou `RotaVitrineInterna` quando necessário;
+7. confira se o backend possui a mesma autorização;
+8. execute lint, build e validação visual.
+
+## Antes de commitar
+
+```powershell
+npm run lint
+npm run build:production
+```
+
+Não versione:
+
+- `node_modules`;
+- `dist`;
+- cache do Vite;
+- arquivos `*.local`;
+- `*.tsbuildinfo` gerado;
+- credenciais;
+- planilhas reais;
+- imagens enviadas por usuários.

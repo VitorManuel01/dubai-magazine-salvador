@@ -8,19 +8,25 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.repositories.ControleSelecaoHomeRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 
 @Service
 public class ApresentacaoProdutoService {
 
+    private static final long LIMITE_DESTAQUES_HOME = 3;
+
     private final ProdutoRepository produtoRepository;
+    private final ControleSelecaoHomeRepository controleSelecaoHomeRepository;
     private final ArmazenamentoImagemProdutoService armazenamentoImagem;
 
     public ApresentacaoProdutoService(
             ProdutoRepository produtoRepository,
+            ControleSelecaoHomeRepository controleSelecaoHomeRepository,
             ArmazenamentoImagemProdutoService armazenamentoImagem
     ) {
         this.produtoRepository = produtoRepository;
+        this.controleSelecaoHomeRepository = controleSelecaoHomeRepository;
         this.armazenamentoImagem = armazenamentoImagem;
     }
 
@@ -32,11 +38,40 @@ public class ApresentacaoProdutoService {
             boolean destaqueNaHome,
             MultipartFile imagem
     ) {
+        controleSelecaoHomeRepository.bloquearParaAtualizacao()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "O controle da Seleção da Loja não está configurado."
+                ));
+
         Produto produto = produtoRepository.findById(codigoSantri)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Produto não encontrado: " + codigoSantri
                 ));
+
+        if (destaqueNaHome && !exibirNoSite) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Um produto oculto não pode fazer parte da Seleção da Loja."
+            );
+        }
+
+        if (destaqueNaHome && !produto.isDisponivelUltimaImportacao()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Um produto indisponível na última importação não pode fazer parte da Seleção da Loja."
+            );
+        }
+
+        if (destaqueNaHome
+                && !produto.isDestaqueNaHome()
+                && produtoRepository.countByDestaqueNaHomeTrue() >= LIMITE_DESTAQUES_HOME) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "A Seleção da Loja já possui o limite de 3 produtos."
+            );
+        }
 
         String nomeNormalizado = normalizarNomeExibidoSite(nomeExibidoSite, produto);
         String novaImagemUrl = imagem == null || imagem.isEmpty()

@@ -13,7 +13,12 @@ import {
 } from '../../utils/resolverImagemProduto';
 import { validarImagemProduto } from '../../utils/validacaoArquivos';
 
-export function Produtos(props: ProdutoCatalogo) {
+type ProdutoProps = ProdutoCatalogo & {
+  limiteDestaquesAtingido?: boolean;
+  carregandoLimiteDestaques?: boolean;
+};
+
+export function Produtos(props: ProdutoProps) {
   const { funcao } = useAuth();
   const isAdmin = funcao === 'ROLE_ADMIN';
   const produtoAdministrativo = isAdmin && ehProdutoAdministrativo(props)
@@ -31,6 +36,16 @@ export function Produtos(props: ProdutoCatalogo) {
   const [imagem, setImagem] = useState<File | undefined>();
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
   const [erroImagem, setErroImagem] = useState('');
+  const destaqueOriginal = produtoAdministrativo?.destaqueNaHome ?? false;
+  const disponivelParaDestaque =
+    produtoAdministrativo?.disponivelUltimaImportacao ?? true;
+  const bloquearNovoDestaque = !destaqueOriginal && (
+    props.carregandoLimiteDestaques || props.limiteDestaquesAtingido
+  );
+
+  useEffect(() => {
+    if (!exibirNoSite || !disponivelParaDestaque) setDestaqueNaHome(false);
+  }, [disponivelParaDestaque, exibirNoSite]);
 
   useEffect(() => {
     setNomeExibidoSite(props.nomeExibidoSite);
@@ -170,10 +185,25 @@ export function Produtos(props: ProdutoCatalogo) {
                 type="checkbox"
                 checked={destaqueNaHome}
                 onChange={(event) => setDestaqueNaHome(event.target.checked)}
-                disabled={atualizarApresentacao.isPending}
+                disabled={
+                  atualizarApresentacao.isPending
+                  || bloquearNovoDestaque
+                  || !exibirNoSite
+                  || !disponivelParaDestaque
+                }
               />
               <span>Exibir na Seleção da Loja</span>
             </label>
+            {props.limiteDestaquesAtingido && !destaqueOriginal && (
+              <small className="produto-admin-error">
+                O limite de 3 produtos foi atingido. Desmarque um item atual antes de selecionar outro.
+              </small>
+            )}
+            {!disponivelParaDestaque && (
+              <small className="produto-admin-error">
+                Produto indisponível na última importação; ele não pode aparecer na Seleção da Loja.
+              </small>
+            )}
 
             {atualizarApresentacao.error && (
               <p className="produto-admin-error">Não foi possível salvar a apresentação.</p>

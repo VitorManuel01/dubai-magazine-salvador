@@ -483,6 +483,63 @@ textarea {
   object-fit: cover;
 }
 
+.promo-slide__admin-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 7;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  max-width: min(320px, calc(100% - 32px));
+  pointer-events: auto;
+}
+
+.promo-slide__upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+  backdrop-filter: blur(10px);
+}
+
+.promo-slide__upload:hover,
+.promo-slide__upload:focus-within {
+  background: rgba(39, 103, 181, 0.94);
+}
+
+.promo-slide__upload:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.promo-slide__upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.promo-slide__upload-error {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.94);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: right;
+}
+
 .catalog-highlight {
   width: min(1180px, calc(100% - 32px));
   margin: 18px auto 0;
@@ -1813,6 +1870,18 @@ a.store-benefit:focus-visible strong {
 
   .promo-carousel__viewport {
     height: clamp(180px, 56vw, 240px);
+  }
+
+  .promo-slide__admin-panel {
+    top: 10px;
+    right: 10px;
+    max-width: calc(100% - 20px);
+  }
+
+  .promo-slide__upload {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 0.74rem;
   }
 
   .catalog-highlight {

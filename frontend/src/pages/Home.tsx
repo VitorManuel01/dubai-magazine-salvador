@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDadosProdutos } from '../hooks/useDadosProdutos';
 import { useVitrinesHome } from '../hooks/useVitrinesHome';
@@ -8,17 +8,38 @@ import {
 } from '../utils/resolverImagemProduto';
 import DepoimentosClientes from '../components/home/DepoimentosClientes';
 import { useCategoriasPrincipais } from '../hooks/useCategoriasPrincipais';
+import { useAuth } from '../context/AuthContext';
+import {
+  useAtualizarBannerHome,
+  useBannersHome,
+} from '../hooks/useBannersHome';
+import { validarImagemProduto } from '../utils/validacaoArquivos';
 
 
 
 type PromoSlide = {
-  codProd?: string;
-  label: string;
   title: string;
-  description: string;
-  cta: string;
   image: string;
+  posicao: number;
 };
+
+const BANNERS_PADRAO: PromoSlide[] = [
+  {
+    posicao: 1,
+    title: 'Banner promocional 1',
+    image: 'https://placehold.co/1366x450?text=Banner+1&font=montserrat',
+  },
+  {
+    posicao: 2,
+    title: 'Banner promocional 2',
+    image: 'https://placehold.co/1366x450?text=Banner+2&font=montserrat',
+  },
+  {
+    posicao: 3,
+    title: 'Banner promocional 3',
+    image: 'https://placehold.co/1366x450?text=Banner+3&font=montserrat',
+  },
+];
 
 const CATEGORIAS_DESTAQUE = [
   { codigo: '034', icone: 'bi-tools' },
@@ -33,6 +54,11 @@ const CATEGORIAS_DESTAQUE = [
 
 const Home: React.FC = () => {
 
+  const { funcao } = useAuth();
+  const administrador = funcao === 'ROLE_ADMIN';
+  const { data: banners = [] } = useBannersHome();
+  const atualizarBanner = useAtualizarBannerHome();
+
   const {
     data: produtosSelecionados = [],
     isLoading: carregandoSelecionados,
@@ -45,35 +71,56 @@ const Home: React.FC = () => {
   const [activeSlide, setActiveSlide] = useState(0);
   const [vitrineAtiva, setVitrineAtiva] = useState(0);
   const [produtoVitrineAtivo, setProdutoVitrineAtivo] = useState(0);
+  const [erroBanner, setErroBanner] = useState<{
+    posicao: number;
+    mensagem: string;
+  } | null>(null);
 
 
   const promoSlides = useMemo<PromoSlide[]>(() => {
-    // Usar placeholders estáticos para o carrossel promocional conforme solicitado
-    const base = 'https://placehold.co/1366x450';
-    return [
+    return BANNERS_PADRAO.map((padrao) => {
+      const cadastrado = banners.find(
+        (banner) => banner.posicao === padrao.posicao
+      );
+      return {
+        ...padrao,
+        image: cadastrado?.imagemUrl
+          ? resolverImagemProduto(cadastrado.imagemUrl)
+          : padrao.image,
+      };
+    });
+  }, [banners]);
+
+  const selecionarImagemBanner = async (
+    posicao: number,
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const input = event.currentTarget;
+    const imagem = input.files?.[0];
+    if (!imagem) return;
+
+    setErroBanner(null);
+    const erroValidacao = await validarImagemProduto(imagem);
+    if (erroValidacao) {
+      setErroBanner({ posicao, mensagem: erroValidacao });
+      input.value = '';
+      return;
+    }
+
+    atualizarBanner.mutate(
+      { posicao, imagem },
       {
-        label: 'AURUM COLLECTION',
-        title: 'Aurum Collection',
-        description: 'Coleção exclusiva com design premium',
-        cta: 'Ver coleção',
-        image: `${base}?text=Banner+1&font=montserrat`,
-      },
-      {
-        label: 'OFERTAS ESPECIAIS',
-        title: 'Ofertas Imperdíveis',
-        description: 'Descontos por tempo limitado',
-        cta: 'Aproveitar',
-        image: `${base}?text=Banner+2&font=montserrat`,
-      },
-      {
-        label: 'LANÇAMENTOS',
-        title: 'Novidades da temporada',
-        description: 'Peças selecionadas com chegada recente',
-        cta: 'Conhecer',
-        image: `${base}?text=Banner+3&font=montserrat`,
-      },
-    ];
-  }, []);
+        onSuccess: () => setErroBanner(null),
+        onError: () => setErroBanner({
+          posicao,
+          mensagem: 'Não foi possível atualizar o banner. Tente novamente.',
+        }),
+        onSettled: () => {
+          input.value = '';
+        },
+      }
+    );
+  };
 
   useEffect(() => {
     setActiveSlide(0);
@@ -150,8 +197,41 @@ const Home: React.FC = () => {
               aria-hidden={index !== activeSlide}
             >
               <div className="promo-slide__visual">
-                <img src={slide.image} alt={slide.title} />
+                <img
+                  src={slide.image}
+                  alt={slide.title}
+                  onError={(event) => {
+                    event.currentTarget.src = BANNERS_PADRAO[index].image;
+                  }}
+                />
               </div>
+              {administrador && index === activeSlide && (
+                <div className="promo-slide__admin-panel">
+                  <label className="promo-slide__upload">
+                    <i className="bi bi-image" aria-hidden="true" />
+                    <span>
+                      {atualizarBanner.isPending
+                        && atualizarBanner.variables?.posicao === slide.posicao
+                        ? 'Enviando...'
+                        : 'Trocar imagem'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={atualizarBanner.isPending}
+                      onChange={(event) => selecionarImagemBanner(
+                        slide.posicao,
+                        event
+                      )}
+                    />
+                  </label>
+                  {erroBanner?.posicao === slide.posicao && (
+                    <span className="promo-slide__upload-error" role="alert">
+                      {erroBanner.mensagem}
+                    </span>
+                  )}
+                </div>
+              )}
             </article>
           ))}
         </div>
