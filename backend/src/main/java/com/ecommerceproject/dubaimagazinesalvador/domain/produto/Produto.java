@@ -138,6 +138,9 @@ public class Produto {
     @Column(name = "imagem_url", length = 1000)
     private String imagemUrl;
 
+    @Column(name = "imagem_hover_url", length = 1000)
+    private String imagemHoverUrl;
+
     @Column(name = "exibir_no_site", nullable = false)
     private boolean exibirNoSite;
 
@@ -149,6 +152,27 @@ public class Produto {
 
     @Column(name = "ultima_importacao_em")
     private LocalDateTime ultimaImportacaoEm;
+
+    @Column(name = "em_promocao", nullable = false)
+    private boolean emPromocao;
+
+    @Column(name = "data_inicial_prom")
+    private LocalDate dataInicialProm;
+
+    @Column(name = "data_final_prom")
+    private LocalDate dataFinalProm;
+
+    @Column(name = "porc_margem", precision = 9, scale = 4)
+    private BigDecimal porcMargem;
+
+    @Column(name = "porc_desconto", precision = 9, scale = 4)
+    private BigDecimal porcDesconto;
+
+    @Column(name = "preco_promocao", precision = 15, scale = 2)
+    private BigDecimal precoPromocao;
+
+    @Column(nullable = false)
+    private boolean especial;
 
     public Produto(ProdutoRequestDTO data, Categoria categoria) {
         this.codigoSantri = data.codigoSantri();
@@ -234,12 +258,50 @@ public class Produto {
             boolean destaqueNaHome,
             String novaImagemUrl
     ) {
+        atualizarApresentacao(
+                nomeExibidoSite,
+                exibirNoSite,
+                destaqueNaHome,
+                novaImagemUrl,
+                null
+        );
+    }
+
+    public void atualizarApresentacao(
+            String nomeExibidoSite,
+            boolean exibirNoSite,
+            boolean destaqueNaHome,
+            String novaImagemUrl,
+            String novaImagemHoverUrl
+    ) {
         this.nomeExibidoSite = normalizarNomeExibidoSite(nomeExibidoSite, nome);
         this.exibirNoSite = exibirNoSite;
         this.destaqueNaHome = destaqueNaHome;
         if (novaImagemUrl != null && !novaImagemUrl.isBlank()) {
             this.imagemUrl = novaImagemUrl;
         }
+        if (novaImagemHoverUrl != null && !novaImagemHoverUrl.isBlank()) {
+            this.imagemHoverUrl = novaImagemHoverUrl;
+        }
+    }
+
+    public void tornarVisivelNoSite() {
+        if (!disponivelUltimaImportacao) {
+            throw new IllegalStateException(
+                    "Produto indisponível na última importação não pode ser exibido."
+            );
+        }
+        this.exibirNoSite = true;
+    }
+
+    public void ocultarNoSite() {
+        this.exibirNoSite = false;
+        this.destaqueNaHome = false;
+    }
+
+    @Transient
+    public boolean isEsgotado() {
+        return estoque == null || estoque.signum() <= 0;
     }
     //como a loja trabalha com muitos produtos importados, é imperativo a tratativa do preço com IPI, pois o santri não disponibiliza o preço com IPI, apenas o preço sem IPI e o percentual de IPI de entrada. 
     // Portanto, para exibir o preço correto no site, é necessário calcular o preço com IPI a partir do preço sem IPI e do percentual de IPI de entrada.
@@ -252,6 +314,20 @@ public class Produto {
         return valorOuZero(precoSemIpi)
                 .multiply(fatorIpi)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Transient
+    public boolean isPromocaoVigente() {
+        LocalDate hoje = LocalDate.now();
+        return emPromocao
+                && precoPromocao != null
+                && (dataInicialProm == null || !hoje.isBefore(dataInicialProm))
+                && (dataFinalProm == null || !hoje.isAfter(dataFinalProm));
+    }
+
+    @Transient
+    public BigDecimal getPrecoVendaEfetivo() {
+        return isPromocaoVigente() ? precoPromocao : getPrecoComIpi();
     }
 
     //A função valorOuZero é utilizada para evitar NullPointerException ao lidar com valores nulos de BigDecimal, retornando BigDecimal.ZERO caso o valor seja nulo.

@@ -1,19 +1,15 @@
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { validarArquivoOds } from '../utils/validacaoArquivos';
 import './ImportacaoProdutos.css';
 
-interface ResultadoImportacao {
+interface ResultadoImportacaoEstoque {
   arquivo: string;
-  categoriasLidas: number;
-  categoriasCriadas: number;
-  categoriasAtualizadas: number;
-  produtosLidos: number;
-  produtosCriados: number;
+  registrosLidos: number;
   produtosAtualizados: number;
-  linhasIgnoradas: number;
+  codigosIgnorados: number;
   importadoEm: string;
   duracaoMilissegundos: number;
 }
@@ -25,25 +21,26 @@ interface ErroImportacao {
 
 type FaseImportacao = 'pronto' | 'enviando' | 'processando' | 'concluido' | 'erro';
 
-function ImportacaoProdutos() {
+function ImportacaoEstoque() {
   const queryClient = useQueryClient();
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [fase, setFase] = useState<FaseImportacao>('pronto');
   const [progresso, setProgresso] = useState(0);
-  const [resultado, setResultado] = useState<ResultadoImportacao | null>(null);
+  const [resultado, setResultado] = useState<ResultadoImportacaoEstoque | null>(null);
   const [erro, setErro] = useState('');
 
-  const handleArquivo = async (event: ChangeEvent<HTMLInputElement>) => {
+  const selecionarArquivo = async (event: ChangeEvent<HTMLInputElement>) => {
     const selecionado = event.target.files?.[0] ?? null;
     setResultado(null);
     setErro('');
     setProgresso(0);
     setFase('pronto');
+
     if (!selecionado) {
       setArquivo(null);
       return;
     }
-    // Validação do arquivo ODS antes de prosseguir com a importação, evitando arquivos maliciosos ou incorretos.
+
     const erroValidacao = await validarArquivoOds(selecionado);
     if (erroValidacao) {
       setArquivo(null);
@@ -58,16 +55,11 @@ function ImportacaoProdutos() {
   const importar = async (event: FormEvent) => {
     event.preventDefault();
     if (!arquivo) {
-      setErro('Selecione o arquivo ODS da relação analítica de produtos.');
+      setErro('Selecione o arquivo ODS do inventário do Santri.');
       setFase('erro');
       return;
     }
-    if (!arquivo.name.toLowerCase().endsWith('.ods')) {
-      setErro('O arquivo selecionado precisa ter a extensão .ods.');
-      setFase('erro');
-      return;
-    }
-    // Criação de FormData para envio do arquivo ODS ao backend, permitindo o processamento da importação.
+
     const formData = new FormData();
     formData.append('arquivo', arquivo);
     setErro('');
@@ -75,20 +67,20 @@ function ImportacaoProdutos() {
     setProgresso(0);
     setFase('enviando');
 
-    try { 
-      const response = await axios.post<ResultadoImportacao>(
-        '/admin/importacoes/produtos',
+    try {
+      const response = await axios.post<ResultadoImportacaoEstoque>(
+        '/admin/importacoes/estoque',
         formData,
         {
           onUploadProgress: (progressEvent) => {
             if (!progressEvent.total) return;
-            const percentual = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            const percentual = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total,
+            );
             setProgresso(percentual);
-            if (percentual >= 100) {
-              setFase('processando');
-            }
+            if (percentual >= 100) setFase('processando');
           },
-        }
+        },
       );
 
       setResultado(response.data);
@@ -100,10 +92,10 @@ function ImportacaoProdutos() {
         setErro(
           error.response?.data?.erro
           ?? error.response?.data?.message
-          ?? 'Não foi possível importar a relação de produtos.'
+          ?? 'Não foi possível importar o inventário.',
         );
       } else {
-        setErro('Não foi possível importar a relação de produtos.');
+        setErro('Não foi possível importar o inventário.');
       }
       setFase('erro');
     }
@@ -122,16 +114,15 @@ function ImportacaoProdutos() {
       <div className="import-heading">
         <div>
           <span className="import-eyebrow">Área administrativa</span>
-          <h1>Importar relação de produtos</h1>
+          <h1>Atualizar estoque pelo inventário</h1>
           <p>
-            Envie a Relação de Produtos por Grupo gerada no Santri com produtos ativos e estoque
-            físico positivo. Use a importação de inventário para sincronizar as quantidades,
-            inclusive dos itens zerados.
+            Envie o relatório de Inventário do Santri. A aplicação lê somente o código
+            do produto e a quantidade, atualizando apenas produtos já cadastrados.
           </p>
         </div>
         <div className="import-heading__actions">
-          <Link className="btn btn-outline-primary" to="/admin/vitrines-home">
-            Gerenciar vitrines
+          <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">
+            Importar produtos
           </Link>
           <Link className="btn btn-outline-secondary" to="/produtos">
             Voltar ao catálogo
@@ -141,13 +132,13 @@ function ImportacaoProdutos() {
 
       <section className="import-card">
         <div className="import-card__icon" aria-hidden="true">
-          <i className="bi bi-file-earmark-spreadsheet" />
+          <i className="bi bi-boxes" />
         </div>
 
         <form onSubmit={importar}>
-          <label className="import-file" htmlFor="arquivo-inventario">
+          <label className="import-file" htmlFor="arquivo-estoque">
             <span className="import-file__title">
-              {arquivo ? arquivo.name : 'Selecionar arquivo ODS'}
+              {arquivo ? arquivo.name : 'Selecionar inventário ODS'}
             </span>
             <span className="import-file__hint">
               {arquivo
@@ -155,10 +146,10 @@ function ImportacaoProdutos() {
                 : 'Tamanho máximo: 20 MB'}
             </span>
             <input
-              id="arquivo-inventario"
+              id="arquivo-estoque"
               type="file"
               accept=".ods"
-              onChange={handleArquivo}
+              onChange={selecionarArquivo}
               disabled={ocupada}
             />
           </label>
@@ -166,9 +157,9 @@ function ImportacaoProdutos() {
           <div className="import-notice">
             <i className="bi bi-shield-check" />
             <p>
-              Produtos existentes serão atualizados pelo código Santri. Nome público e imagens
-              serão preservados. Produtos ausentes não serão excluídos, mas ficarão indisponíveis
-              e ocultos até reaparecerem em uma importação.
+              Códigos que não existem no banco serão ignorados. Nome, preço, imagens,
+              categorias e visibilidade no site não serão alterados. Estoque zero fará
+              um produto que já esteja visível aparecer como ESGOTADO.
             </p>
           </div>
 
@@ -178,7 +169,7 @@ function ImportacaoProdutos() {
                 <span>
                   {fase === 'enviando'
                     ? `Enviando arquivo: ${progresso}%`
-                    : 'Arquivo enviado. Processando a relação de produtos...'}
+                    : 'Arquivo enviado. Atualizando os estoques...'}
                 </span>
                 <span>{progresso}%</span>
               </div>
@@ -201,8 +192,8 @@ function ImportacaoProdutos() {
             disabled={!arquivo || ocupada}
           >
             {fase === 'enviando' && 'Enviando...'}
-            {fase === 'processando' && 'Importando...'}
-            {!ocupada && 'Importar relação'}
+            {fase === 'processando' && 'Atualizando...'}
+            {!ocupada && 'Atualizar estoque'}
           </button>
         </form>
       </section>
@@ -212,7 +203,7 @@ function ImportacaoProdutos() {
           <div className="import-result__heading">
             <i className="bi bi-check-circle-fill" />
             <div>
-              <h2>Importação concluída</h2>
+              <h2>Estoque atualizado</h2>
               <p>
                 {resultado.arquivo} processado em {duracaoSegundos} segundos.
               </p>
@@ -221,34 +212,29 @@ function ImportacaoProdutos() {
 
           <div className="import-result__grid">
             <div>
-              <span>Produtos lidos</span>
-              <strong>{resultado.produtosLidos.toLocaleString('pt-BR')}</strong>
-            </div>
-            <div>
-              <span>Produtos novos</span>
-              <strong>{resultado.produtosCriados.toLocaleString('pt-BR')}</strong>
+              <span>Registros lidos</span>
+              <strong>{resultado.registrosLidos.toLocaleString('pt-BR')}</strong>
             </div>
             <div>
               <span>Produtos atualizados</span>
               <strong>{resultado.produtosAtualizados.toLocaleString('pt-BR')}</strong>
             </div>
             <div>
-              <span>Categorias lidas</span>
-              <strong>{resultado.categoriasLidas.toLocaleString('pt-BR')}</strong>
+              <span>Códigos ignorados</span>
+              <strong>{resultado.codigosIgnorados.toLocaleString('pt-BR')}</strong>
             </div>
           </div>
 
-          {resultado.linhasIgnoradas > 0 && (
+          {resultado.codigosIgnorados > 0 && (
             <p className="import-result__note">
-              {resultado.linhasIgnoradas.toLocaleString('pt-BR')} linha(s) foram ignoradas por
-              inatividade, marca/fabricante INATIVOS, preço zerado ou estrutura inválida.
+              Os códigos ignorados pertencem a itens que constam no inventário, mas não
+              estão cadastrados no catálogo deste site.
             </p>
           )}
         </section>
       )}
-
     </div>
   );
 }
 
-export default ImportacaoProdutos;
+export default ImportacaoEstoque;

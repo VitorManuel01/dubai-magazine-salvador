@@ -14,6 +14,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import Login from './components/login/Login';
 import Home from './pages/Home';
 import ImportacaoProdutos from './pages/ImportacaoProdutos';
+import ImportacaoPromocoes from './pages/ImportacaoPromocoes';
+import ImportacaoEstoque from './pages/ImportacaoEstoque';
 import VitrinesHomeAdmin from './pages/VitrinesHomeAdmin';
 import VitrineLoja from './pages/VitrineLoja';
 import VitrineLojaAdmin from './pages/VitrineLojaAdmin';
@@ -104,8 +106,8 @@ function BarraBusca() {
     <form className="search-bar" role="search" onSubmit={pesquisar}>
       <input
         type="search"
-        placeholder={funcao === 'ROLE_ADMIN'
-          ? 'Buscar por produto, código ou marca'
+        placeholder={funcao === 'ROLE_ADMIN' || funcao === 'ROLE_FUNCIONARIO'
+          ? 'Buscar por produto, código Santri ou marca'
           : 'Buscar por produto ou marca'}
         aria-label="Buscar produtos"
         value={termo}
@@ -140,6 +142,10 @@ function ConteudoAplicacao() {
                 <strong>Vitrine da loja física</strong>
               </div>
               <nav className="internal-header__actions" aria-label="Navegação interna">
+                <Link to="/produtos">
+                  <i className="bi bi-search" />
+                  Pesquisar catálogo
+                </Link>
                 <Link to="/vitrine-loja">
                   <i className="bi bi-display" />
                   Consultar vitrine
@@ -294,6 +300,22 @@ function ConteudoAplicacao() {
               element={(
                 <RotaAdmin>
                   <ImportacaoProdutos />
+                </RotaAdmin>
+              )}
+            />
+            <Route
+              path="/admin/importacao-promocoes"
+              element={(
+                <RotaAdmin>
+                  <ImportacaoPromocoes />
+                </RotaAdmin>
+              )}
+            />
+            <Route
+              path="/admin/importacao-estoque"
+              element={(
+                <RotaAdmin>
+                  <ImportacaoEstoque />
                 </RotaAdmin>
               )}
             />

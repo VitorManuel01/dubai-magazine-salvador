@@ -100,10 +100,17 @@ As regras abrangem o código raiz e todos os descendentes, por exemplo `123.001`
 - categoria;
 - instante e disponibilidade da última importação.
 
+### Promoções
+
+Os campos `em_promocao`, `data_inicial_prom`, `data_final_prom`, `porc_margem`, `porc_desconto`,
+`preco_promocao` e `especial` vêm do relatório de Promoções de Venda. A vigência exibida é calculada
+com a data atual, evitando que um preço vencido continue público mesmo antes da próxima importação.
+
 ### Dados editoriais da aplicação
 
 - `nome_exibido_site`;
 - `imagem_url`;
+- `imagem_hover_url`, usada como segunda foto do card em dispositivos com mouse;
 - `exibir_no_site`;
 - `destaque_na_home`.
 
@@ -129,6 +136,8 @@ Um produto entra na consulta pública quando:
 - atende à categoria, busca e destaque solicitados.
 
 O DTO público não expõe campos operacionais como estoque, código Santri ou código de barras.
+Administradores e funcionários usam um contrato interno mínimo que acrescenta somente o código
+Santri necessário à consulta; o DTO administrativo completo continua exclusivo do administrador.
 
 ## Vitrines da home
 

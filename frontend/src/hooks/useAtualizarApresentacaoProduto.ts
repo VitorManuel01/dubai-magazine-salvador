@@ -8,6 +8,7 @@ interface AtualizarApresentacao {
   exibirNoSite: boolean;
   destaqueNaHome: boolean;
   imagem?: File;
+  imagemHover?: File;
 }
 
 const atualizarApresentacao = async ({
@@ -16,6 +17,7 @@ const atualizarApresentacao = async ({
   exibirNoSite,
   destaqueNaHome,
   imagem,
+  imagemHover,
 }: AtualizarApresentacao): Promise<DadosProdutos> => {
   const formData = new FormData();
   formData.append('nomeExibidoSite', nomeExibidoSite);
@@ -23,6 +25,9 @@ const atualizarApresentacao = async ({
   formData.append('destaqueNaHome', String(destaqueNaHome));
   if (imagem) {
     formData.append('imagem', imagem);
+  }
+  if (imagemHover) {
+    formData.append('imagemHover', imagemHover);
   }
 
   const response = await axios.put<DadosProdutos>(

@@ -14,8 +14,11 @@ const fetchData = async (
     pagina = 0,
     busca?: string,
     somenteDestaques = false,
-    administracao = false,
+    perfil = 'publico',
+    apenasVisiveis = false,
 ): Promise<PaginaProdutos> => {
+    const administracao = perfil === 'ROLE_ADMIN';
+    const interno = administracao || perfil === 'ROLE_FUNCIONARIO';
     if (!administracao && ehCodigoCategoriaInterna(categoriaCodigo)) {
         return {
             content: [],
@@ -29,18 +32,19 @@ const fetchData = async (
     }
 
     const response = await axios.get<PaginaProdutos>(
-        administracao ? "/admin/produtos" : "/produto",
+        administracao ? "/admin/produtos" : interno ? "/interno/produtos" : "/produto",
         {
             params: {
                 ...(categoriaCodigo ? { categoriaCodigo } : {}),
                 ...(busca ? { busca } : {}),
                 ...(somenteDestaques ? { somenteDestaques: true } : {}),
+                ...(administracao && apenasVisiveis ? { apenasVisiveis: true } : {}),
                 pagina,
                 tamanho: 24,
             },
         },
     );
-    if (administracao) {
+    if (interno) {
         return response.data;
     }
 
@@ -62,15 +66,16 @@ export function useDadosProdutos(
     busca?: string,
     somenteDestaques = false,
     habilitado = true,
+    apenasVisiveis = false,
 ){
-    const administracao = perfil === 'ROLE_ADMIN';
     const query = useQuery({
         queryFn: () => fetchData(
             categoriaCodigo,
             pagina,
             busca,
             somenteDestaques,
-            administracao,
+            perfil,
+            apenasVisiveis,
         ),
         queryKey: [
             'dados-produto',
@@ -79,6 +84,7 @@ export function useDadosProdutos(
             somenteDestaques ? 'destaques' : 'catalogo',
             pagina,
             perfil,
+            apenasVisiveis ? 'apenas-visiveis' : 'todos-status',
         ],
         retry: 2,
         enabled: habilitado,

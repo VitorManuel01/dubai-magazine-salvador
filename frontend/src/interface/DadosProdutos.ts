@@ -2,14 +2,23 @@ export interface ProdutoCatalogoPublico {
     nomeExibidoSite: string;
     marca: string | null;
     precoComIpi: number;
+    emPromocao: boolean;
+    precoPromocao: number | null;
+    porcDesconto: number | null;
+    dataFinalProm: string | null;
+    esgotado: boolean;
     categoriaCodigo: string;
     categoriaNome: string;
     categoriaCaminho: string;
     imagemUrl: string | null;
+    imagemHoverUrl: string | null;
 }
 
-export interface DadosProdutos extends ProdutoCatalogoPublico {
+export interface ProdutoCatalogoInterno extends ProdutoCatalogoPublico {
     codigoSantri: string;
+}
+
+export interface DadosProdutos extends ProdutoCatalogoInterno {
     nome: string;
     ncm: string | null;
     nomeCompra: string | null;
@@ -43,12 +52,21 @@ export interface DadosProdutos extends ProdutoCatalogoPublico {
     destaqueNaHome: boolean;
     disponivelUltimaImportacao: boolean;
     ultimaImportacaoEm: string | null;
+    dataInicialProm: string | null;
+    porcMargem: number | null;
+    especial: boolean;
 }
 
-export type ProdutoCatalogo = ProdutoCatalogoPublico | DadosProdutos;
+export type ProdutoCatalogo = ProdutoCatalogoPublico | ProdutoCatalogoInterno | DadosProdutos;
+
+export function ehProdutoInterno(
+    produto: ProdutoCatalogo,
+): produto is ProdutoCatalogoInterno | DadosProdutos {
+    return 'codigoSantri' in produto;
+}
 
 export function ehProdutoAdministrativo(
     produto: ProdutoCatalogo,
 ): produto is DadosProdutos {
-    return 'codigoSantri' in produto;
+    return 'exibirNoSite' in produto;
 }

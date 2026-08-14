@@ -9,6 +9,18 @@ const opcoes = [
     descricao: 'Atualize o catálogo a partir do relatório ODS gerado no Santri.',
   },
   {
+    rota: '/admin/importacao-promocoes',
+    icone: 'bi-tags',
+    titulo: 'Importar promoções de venda',
+    descricao: 'Sincronize preços e períodos promocionais pelo relatório ODS do Santri.',
+  },
+  {
+    rota: '/admin/importacao-estoque',
+    icone: 'bi-boxes',
+    titulo: 'Atualizar estoque pelo inventário',
+    descricao: 'Sincronize as quantidades pelo código Santri sem alterar os demais dados.',
+  },
+  {
     rota: '/admin/vitrines-home',
     icone: 'bi-window-stack',
     titulo: 'Gerenciar vitrine do site',

@@ -23,7 +23,7 @@ public record ProdutoVitrineLojaProdutoDTO(
                 produto.getCodigoOriginal(),
                 produto.getUnidadeVenda(),
                 produto.getEstoque(),
-                produto.getPrecoComIpi(),
+                produto.getPrecoVendaEfetivo(),
                 produto.getImagemUrl()
         );
     }
