@@ -45,6 +45,7 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaReposito
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdutoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
@@ -79,6 +80,9 @@ class ProdControllerTest {
 
     @MockitoBean
     private ApresentacaoProdutoService apresentacaoProdutoService;
+
+    @MockitoBean
+    private ExclusaoProdutoService exclusaoProdutoService;
 
     private ObjectMapper objectMapper;
     private Categoria categoria;
@@ -140,6 +144,31 @@ class ProdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nome").value("Produto 1"))
                 .andExpect(jsonPath("$.content[1].nome").value("Produto 2"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve permitir que o administrador consulte apenas produtos visíveis")
+    void getAllApenasVisiveis() throws Exception {
+        Produto produto = criarProduto("2.672", "Produto visível");
+        when(produtoRepository.findCatalogoInternoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(false),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(produto)));
+
+        mockMvc.perform(get("/admin/produtos")
+                        .param("apenasVisiveis", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nome").value("Produto visível"));
+
+        verify(produtoRepository).findCatalogoInternoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(false),
+                any(Pageable.class)
+        );
     }
 
     @Test
@@ -220,6 +249,7 @@ class ProdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nomeExibidoSite").value("Produto público"))
                 .andExpect(jsonPath("$.content[0].precoComIpi").value(9.99))
+                .andExpect(jsonPath("$.content[0].esgotado").value(false))
                 .andExpect(jsonPath("$.content[0].imagemUrl")
                         .value("/catalogo/imagens/7abe08ab-cebd-4dd8-a6a9-6252faa1d9f8.webp"))
                 .andExpect(jsonPath("$.content[0].codigoSantri").doesNotExist())
@@ -272,15 +302,12 @@ class ProdControllerTest {
     @DisplayName("Deve deletar um produto")
     void deleteProduto() throws Exception {
         String codigoSantri = "2.672";
-        Produto produto = criarProduto(codigoSantri, "Produto 1");
-        when(produtoRepository.findById(codigoSantri)).thenReturn(Optional.of(produto));
-
         mockMvc.perform(delete("/produto/" + codigoSantri)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Produto deletado com sucesso!"));
 
-        verify(produtoRepository, times(1)).delete(produto);
+        verify(exclusaoProdutoService).excluir(codigoSantri);
     }
 
     @Test
@@ -295,6 +322,7 @@ class ProdControllerTest {
                 "Nome público",
                 true,
                 true,
+                null,
                 null
         ))
                 .thenReturn(new ProdutoResponseDTO(produto));
@@ -316,6 +344,7 @@ class ProdControllerTest {
                 "Nome público",
                 true,
                 true,
+                null,
                 null
         );
     }

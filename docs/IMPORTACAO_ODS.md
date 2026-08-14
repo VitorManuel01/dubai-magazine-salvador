@@ -9,6 +9,34 @@ editoriais administradas no site.
 Somente administradores podem abrir a tela `/admin/importacao-produtos` e chamar a rota de
 importação.
 
+## Promoções de venda
+
+A tela `/admin/importacao-promocoes` recebe separadamente o relatório **Promoções de Venda**. Ela
+sincroniza, por código Santri, período inicial/final, margem, desconto, preço promocional e o
+indicador especial. Linhas de grupo e subtotal são ignoradas.
+
+Essa importação funciona como uma fotografia completa: antes de aplicar o novo relatório, os dados
+promocionais anteriores são limpos dentro da mesma transação. Se a leitura ou atualização falhar,
+o banco faz rollback. Produtos ausentes do catálogo não são criados e, se nenhum código do relatório
+existir no catálogo, a operação é rejeitada antes de qualquer limpeza.
+
+O preço promocional só é devolvido ao catálogo enquanto `em_promocao` estiver ativo e a data atual
+estiver entre o início e o fim da promoção.
+
+## Inventário e estoque
+
+A tela `/admin/importacao-estoque` recebe o relatório **Inventário** do Santri. Esse fluxo foi
+separado da Relação de Produtos porque o inventário completo pode ultrapassar 80 mil itens, enquanto
+somente uma pequena parte deles pertence ao catálogo do site.
+
+O leitor processa o XML em fluxo e materializa apenas `Produto` e `Quantidade`. Se o código Santri
+já existir no banco, seu estoque é atualizado; caso contrário, a linha é ignorada. A operação não
+cria produtos e não altera nome, preço, categoria, imagens, destaque ou visibilidade no site.
+
+O Santri pode dividir relatórios grandes em abas como `Inventário` e `Inventário_1`. As abas de
+continuação são processadas automaticamente. No arquivo validado em 14/08/2026 foram lidos 86.919
+registros, dos quais 32.869 possuíam estoque zero.
+
 ## Relatório esperado
 
 Gere uma relação analítica agrupada por categoria. A planilha precisa manter as linhas de grupo
@@ -24,8 +52,9 @@ Filtros recomendados na emissão:
 - sem limitação de preço que remova produtos válidos;
 - somente as colunas descritas abaixo.
 
-O backend também ignora produtos inativos ou com estoque nulo/zero, mas filtrar no Santri reduz o
-arquivo, acelera a importação e deixa o resultado mais fácil de auditar.
+O backend ignora produtos inativos, com marca ou fabricante `INATIVOS`, ou com preço de venda menor
+ou igual a zero. Depois da relação de produtos, execute a importação de inventário para atualizar
+inclusive os itens zerados que devem aparecer como `ESGOTADO` quando já estiverem visíveis.
 
 ## Colunas obrigatórias
 
@@ -75,7 +104,8 @@ manualmente as colunas: exporte-as diretamente do relatório.
 - pontos e espaços são removidos do código do produto antes da persistência;
 - valores `Sim` e `Não` são convertidos em booleanos;
 - números no formato brasileiro são convertidos para `BigDecimal`;
-- produto inativo ou sem estoque positivo conta como linha ignorada;
+- produto inativo, com marca/fabricante `INATIVOS` ou preço de venda menor ou igual a zero conta como linha ignorada;
+- se uma linha de produto trouxer estoque vazio, ele é interpretado como zero;
 - códigos de produto repetidos no mesmo arquivo ficam representados pelo último valor lido;
 - fórmulas não são aceitas: a exportação deve conter somente valores.
 
@@ -83,13 +113,17 @@ manualmente as colunas: exporte-as diretamente do relatório.
 
 1. gere o ODS com os filtros recomendados;
 2. entre como administrador;
-3. abra **Minha conta → Importar relação de produtos**;
+3. abra o **catálogo administrativo** e use o botão **Importar relação de produtos** no final da
+   página;
 4. selecione o arquivo `.ods`;
 5. confirme o nome e o tamanho;
 6. clique em **Importar relação**;
 7. aguarde as fases de envio e processamento;
 8. confira os contadores de produtos e categorias;
-9. revise o catálogo administrativo antes de tornar novos itens públicos.
+9. se houver promoções, use o botão **Importar promoções** no mesmo local e envie o ODS de
+   Promoções de Venda;
+10. use o botão **Atualizar estoque** e envie o ODS de Inventário;
+11. revise o catálogo administrativo antes de tornar novos itens públicos.
 
 Durante a importação, não feche o processo do backend. Uma segunda importação simultânea é
 rejeitada.
@@ -108,6 +142,10 @@ Toda importação é transacional:
 - produtos de ativo imobilizado (`089` e descendentes) são removidos;
 - ajustes de grupos (`123`) e implantação (`999`) permanecem ocultos;
 - produto com preço sem IPI menor ou igual a zero fica oculto.
+
+Na importação de inventário, somente `produtos.estoque` é atualizado, em lotes de 1.000. Códigos
+desconhecidos são ignorados e contabilizados na resposta. A leitura e os lotes participam de uma
+única transação: uma falha reverte todas as quantidades daquela execução.
 
 O cálculo de `precoComIpi` não é armazenado. Ele é recalculado quando o DTO é montado.
 
@@ -138,6 +176,7 @@ O backend repete e amplia a validação:
 - até 300 MB para o conjunto descompactado;
 - razão mínima de compactação de 1% para entradas com pelo menos 1 MB;
 - até 25.000 linhas e 25.000 produtos;
+- no inventário, até 120.000 linhas e 100.000 registros;
 - até 80 colunas por linha;
 - até 75 caracteres Unicode por célula;
 - parser XML configurado em modo fail-closed;
@@ -154,8 +193,10 @@ O backend repete e amplia a validação:
 | Entradas internas do ZIP | 100 |
 | `content.xml` descompactado | 250 MB |
 | Total descompactado | 300 MB |
-| Linhas | 25.000 |
-| Produtos únicos | 25.000 |
+| Linhas da relação de produtos | 25.000 |
+| Produtos únicos da relação de produtos | 25.000 |
+| Linhas do inventário | 120.000 |
+| Registros do inventário | 100.000 |
 | Colunas lidas | 80 |
 | Caracteres por célula | 75 |
 
@@ -195,9 +236,9 @@ Uma ou mais colunas foram omitidas na configuração do resultado do Santri.
 
 O relatório perdeu as linhas de agrupamento. Gere novamente com agrupamento por grupo de produto.
 
-### “Nenhuma categoria ou produto ativo com estoque positivo foi encontrado”
+### “Nenhuma categoria ou produto ativo foi encontrado”
 
-Confira empresa, ativo, estoque e filtros da emissão.
+Confira empresa, indicador de produto ativo e os filtros da emissão.
 
 ### “O ODS contém fórmulas”
 
@@ -205,8 +246,9 @@ Salve uma exportação com valores finais. Não edite o arquivo inserindo fórmu
 
 ### Produto desapareceu do catálogo depois da importação
 
-Verifique se ele estava presente, ativo, com estoque positivo e preço válido. Ausentes ficam
-indisponíveis e ocultos até reaparecerem.
+Verifique se ele estava presente, ativo, com marca/fabricante diferente de `INATIVOS` e preço maior
+que zero na Relação de Produtos. Em seguida, importe o Inventário para sincronizar sua quantidade.
+Produtos já visíveis cujo estoque seja atualizado para zero aparecem com a indicação `ESGOTADO`.
 
 ## Recuperação
 

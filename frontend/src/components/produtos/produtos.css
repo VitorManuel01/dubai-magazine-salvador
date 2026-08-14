@@ -1,5 +1,8 @@
 .produto-card {
-  height: 100%;
+  display: flex;
+  min-width: 0;
+  height: auto;
+  flex-direction: column;
   border: 1px solid rgba(56, 112, 200, 0.12);
   border-radius: 18px;
   overflow: hidden;
@@ -18,15 +21,77 @@
   background: #fbfcfe;
 }
 
+/* O cartão administrativo reserva a mesma área para cada produto. */
+.produto-card--administrativo {
+  height: 500px !important;
+}
+
+/* O catálogo público também usa uma altura única, sem esticar a grade. */
+.produto-card:not(.produto-card--administrativo) {
+  height: 290px;
+}
+
+.produto-card--administrativo .produto-img {
+  height: 160px;
+  padding: 12px;
+}
+
+.produto-card--administrativo .card-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.produto-card:not(.produto-card--administrativo) .card-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 8px 12px 10px;
+}
+
+/* Ao editar, mantém a altura do card e permite alcançar todos os campos. */
+.produto-card--administrativo.produto-card--editando .card-body {
+  overflow-y: auto;
+}
+
 .produto-image-shell {
   position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .produto-img {
-  height: 178px;
+  height: 200px;
   object-fit: contain;
   padding: 16px;
   background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-img {
+  height: 170px;
+  padding: 10px;
+}
+
+.produto-img--principal,
+.produto-img--hover {
+  display: block;
+  width: 100%;
+  transition: opacity 0.28s ease;
+}
+
+.produto-img--hover {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .produto-image-shell:hover .produto-img--principal {
+    opacity: 0;
+  }
+
+  .produto-image-shell:hover .produto-img--hover {
+    opacity: 1;
+  }
 }
 
 .produto-status {
@@ -50,20 +115,84 @@
   background: #64748b;
 }
 
+.produto-esgotado {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(185, 28, 28, 0.94);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.produto-selecao {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 5px 8px;
+  border: 1px solid rgba(56, 112, 200, 0.25);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1e3356;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(24, 49, 83, 0.12);
+}
+
+.produto-selecao input {
+  margin: 0;
+}
+
+.produto-selecao--indisponivel {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .produto-card .card-body {
+  display: flex;
+  min-width: 0;
+  height: auto;
+  flex-direction: column;
   padding: 14px 16px 16px;
   text-align: center;
 }
 
 .produto-card .card-title {
+  display: -webkit-box;
+  min-width: 0;
+  min-height: 3.75rem;
+  margin-bottom: 10px;
+  overflow: hidden;
   font-size: 0.92rem;
   font-weight: 700;
-  min-height: 42px;
+  line-height: 1.35;
   color: #1e3356;
-  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.produto-card:not(.produto-card--administrativo) .card-title {
+  min-height: 2.1rem;
+  margin-bottom: 5px;
+  font-size: 0.82rem;
+  line-height: 1.28;
+  -webkit-line-clamp: 2;
 }
 
 .produto-card .list-unstyled {
+  min-width: 0;
   margin: 0 0 12px;
   display: grid;
   gap: 4px;
@@ -71,8 +200,100 @@
   font-size: 0.82rem;
 }
 
+.produto-informacoes--administrativo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  text-align: left;
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-informacoes {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  font-size: 0.74rem;
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-informacoes--sem-promocao {
+  margin-top: auto;
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-preco-original,
+.produto-card:not(.produto-card--administrativo) .produto-preco-original--riscado {
+  font-size: 0.94rem;
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-preco-promocao--catalogo {
+  font-size: 1.08rem;
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-precos--sem-promocao {
+  align-items: center;
+  justify-content: center;
+}
+
+.produto-card:not(.produto-card--administrativo) .produto-precos--sem-promocao .produto-preco-original {
+  font-size: 1.38rem;
+  line-height: 1.2;
+}
+
+.produto-informacoes--administrativo .produto-informacao {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(24, 49, 83, 0.07);
+}
+
+.produto-informacoes--administrativo .produto-informacao:last-child {
+  border-bottom: 0;
+}
+
+.produto-informacoes--administrativo .produto-informacao > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.produto-informacoes--administrativo .produto-meta {
+  gap: 6px;
+}
+
+.produto-informacoes--administrativo .produto-meta span {
+  display: block;
+  overflow: visible;
+  line-height: 1.35;
+  text-overflow: clip;
+  -webkit-line-clamp: unset;
+}
+
+.produto-card--administrativo.produto-card--editando .produto-informacoes--administrativo {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.produto-card .list-unstyled li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .produto-card .list-unstyled li strong {
   color: #1e3356;
+}
+
+.produto-meta {
+  display: grid;
+  gap: 1px;
+}
+
+.produto-meta span {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .produto-card .btn {
@@ -100,6 +321,7 @@
 }
 
 .produto-admin-editor {
+  min-width: 0;
   display: grid;
   gap: 12px;
   margin-top: 14px;
@@ -110,6 +332,7 @@
 
 .produto-image-input,
 .produto-name-input {
+  min-width: 0;
   display: grid;
   gap: 6px;
   color: #1e3356;
@@ -119,6 +342,8 @@
 
 .produto-image-input input,
 .produto-name-input input {
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
   font-size: 0.72rem;
 }
@@ -161,7 +386,20 @@
 .produto-admin-actions {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.produto-card--administrativo .produto-admin-actions {
+  flex: 0 0 auto;
+}
+
+.produto-admin-actions .btn {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 112px;
+  margin: 4px 0 0;
+  border-radius: 7px;
 }
 
 .produto-admin-error {
@@ -179,17 +417,44 @@
 
   .produto-card .card-title,
   .produto-card .list-unstyled,
+  .produto-card .list-unstyled li,
   .produto-image-input,
   .produto-name-input {
     overflow-wrap: anywhere;
   }
 
-  .produto-admin-actions {
-    flex-wrap: wrap;
-  }
-
   .produto-admin-actions .btn {
-    flex: 1 1 120px;
-    min-width: 0;
+    flex-basis: 100%;
   }
+}
+.produto-precos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.produto-precos--catalogo {
+  margin-block: 0.35rem;
+}
+
+.produto-preco-original {
+  color: #1f2937;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.produto-preco-original--riscado {
+  color: #6c757d;
+  font-size: 1rem;
+  text-decoration: line-through;
+}
+
+.produto-preco-promocao {
+  color: #b42318;
+  font-size: 1.05em;
+}
+
+.produto-preco-promocao--catalogo {
+  font-size: 1.25rem;
+  line-height: 1.2;
 }

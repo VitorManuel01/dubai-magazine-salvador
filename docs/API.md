@@ -25,7 +25,7 @@ limitação por dispositivo. O JWT padrão expira em 3.600 segundos.
 ## Papéis
 
 - `ROLE_ADMIN`: administração completa;
-- `ROLE_FUNCIONARIO`: somente consulta da vitrine interna;
+- `ROLE_FUNCIONARIO`: consulta da vitrine interna e do catálogo com código Santri;
 - `ROLE_CLIENTE`: legado, sem rotas disponíveis no produto atual.
 
 ## Paginação
@@ -148,17 +148,44 @@ Item público:
   "nomeExibidoSite": "Produto",
   "marca": "Marca",
   "precoComIpi": 100.00,
+  "emPromocao": true,
+  "precoPromocao": 89.90,
+  "porcDesconto": 10.10,
+  "dataFinalProm": "2026-08-30",
   "categoriaCodigo": "001.002",
   "categoriaNome": "Categoria",
   "categoriaCaminho": "Grupo > Categoria",
-  "imagemUrl": "/catalogo/imagens/uuid.webp"
+  "imagemUrl": "/catalogo/imagens/uuid.webp",
+  "imagemHoverUrl": "/catalogo/imagens/outro-uuid.webp"
 }
 ```
+
+O contrato público nunca contém código Santri, código de barras ou outros dados operacionais.
+
+### `GET /interno/produtos`
+
+Somente administrador ou funcionário. Exibe os mesmos produtos visíveis do catálogo público,
+acrescenta `codigoSantri` e permite que `busca` pesquise também esse código. Não expõe os demais
+campos administrativos.
 
 ### `GET /admin/produtos`
 
 Somente administrador. Aceita os mesmos parâmetros e inclui produtos ocultos, indisponíveis e
-todos os campos operacionais.
+todos os campos operacionais. Por padrão, os produtos visíveis são ordenados antes dos ocultos.
+O parâmetro `apenasVisiveis=true` restringe o resultado aos produtos disponíveis no catálogo.
+
+### `PUT /admin/produtos/visibilidade`
+
+Somente administrador. Exibe ou oculta até 200 produtos em uma operação. Todos os códigos precisam
+existir. Para exibir, os produtos também precisam estar disponíveis na última importação; caso
+contrário, nenhuma alteração é aplicada. Ocultar não exclui o produto nem seus dados internos.
+
+```json
+{
+  "codigosSantri": ["100", "200"],
+  "exibirNoSite": false
+}
+```
 
 ### `POST /produto`
 
@@ -175,9 +202,11 @@ Somente administrador. `multipart/form-data`.
 | `exibirNoSite` | boolean | sim |
 | `destaqueNaHome` | boolean | sim |
 | `imagem` | JPG, PNG ou WEBP | não |
+| `imagemHover` | JPG, PNG ou WEBP | não |
 
-A imagem tem limite de 5 MB. Deixar o nome vazio restaura o nome do Santri. Omitir a imagem
-preserva a atual.
+Cada imagem tem limite de 5 MB. `imagem` é a foto principal e `imagemHover` aparece quando o
+visitante posiciona o mouse sobre o produto. Deixar o nome vazio restaura o nome do Santri.
+Omitir qualquer imagem preserva a respectiva foto atual.
 
 A Seleção da Loja aceita no máximo três produtos visíveis. Ao tentar marcar um quarto produto, a
 API responde `409 Conflict`. As alterações são serializadas por uma trava no banco para que duas
@@ -186,8 +215,25 @@ importação não pode ser selecionado.
 
 ### `DELETE /produto/{codigoSantri}`
 
-Somente administrador. Remove manualmente um produto. Use com cautela porque vitrines podem
-referenciá-lo.
+Somente administrador. Remove manualmente um produto, suas imagens gerenciadas e suas referências
+na vitrine da loja física. Se o produto continuar no próximo ODS elegível, será cadastrado novamente.
+
+### `DELETE /admin/produtos`
+
+Somente administrador. Remove em uma única transação até 200 produtos selecionados no catálogo
+administrativo. Todos os códigos precisam existir; se algum estiver ausente, nenhum produto é
+excluído. As imagens gerenciadas e referências na vitrine da loja também são removidas depois da
+confirmação da transação.
+
+```json
+{ "codigosSantri": ["100", "200"] }
+```
+
+Resposta:
+
+```json
+{ "produtosExcluidos": 2 }
+```
 
 ## Categorias
 
@@ -209,6 +255,9 @@ Somente administrador. Acrescenta `somenteVisiveis`, que usa `false` por padrão
 ### `POST /admin/importacoes/produtos`
 
 Somente administrador. Recebe `multipart/form-data` com o campo `arquivo` e um ODS de até 20 MB.
+Produtos inativos, com marca/fabricante `INATIVOS` ou preço menor ou igual a zero são ignorados.
+Use a Relação de Produtos com estoque físico positivo; a quantidade exata é sincronizada pela
+importação separada de inventário.
 
 Resposta:
 
@@ -229,6 +278,47 @@ Resposta:
 
 Uma segunda importação concorrente é rejeitada. Consulte
 [Importação ODS](IMPORTACAO_ODS.md) para regras e validações.
+
+### `POST /admin/importacoes/estoque`
+
+Somente administrador. Recebe o ODS **Inventário** do Santri no campo `arquivo`. Apenas as colunas
+`Produto` e `Quantidade` são lidas. Produtos já cadastrados são atualizados pelo código Santri;
+códigos que não existem no catálogo são contabilizados e ignorados. Nenhum produto é criado e os
+demais campos, incluindo a visibilidade editorial, são preservados.
+
+```json
+{
+  "arquivo": "inventario.ods",
+  "registrosLidos": 86919,
+  "produtosAtualizados": 2000,
+  "codigosIgnorados": 84919,
+  "importadoEm": "2026-08-14T12:00:00",
+  "duracaoMilissegundos": 2500
+}
+```
+
+O leitor trabalha em fluxo e aceita até 100.000 registros distribuídos entre a planilha principal
+e as abas de continuação criadas pelo Santri.
+
+### `POST /admin/importacoes/promocoes`
+
+Somente administrador. Recebe o ODS **Promoções de Venda** no campo `arquivo`. A planilha é a fonte
+completa das promoções: atualiza produtos encontrados pelo código Santri e remove dados promocionais
+antigos que não aparecem no novo relatório. Códigos inexistentes são contabilizados e ignorados.
+
+```json
+{
+  "arquivo": "promocoes-venda.ods",
+  "registrosLidos": 1595,
+  "produtosAtualizados": 1500,
+  "promocoesAtivas": 1484,
+  "promocoesDesativadas": 16,
+  "codigosNaoEncontrados": 95,
+  "linhasIgnoradas": 120,
+  "importadoEm": "2026-08-14T11:00:00",
+  "duracaoMs": 1800
+}
+```
 
 ## Banners da home
 

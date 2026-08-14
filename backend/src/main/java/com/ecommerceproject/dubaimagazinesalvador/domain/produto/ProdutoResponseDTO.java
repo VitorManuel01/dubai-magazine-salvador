@@ -42,10 +42,19 @@ public record ProdutoResponseDTO(
         String categoriaNome,
         String categoriaCaminho,
         String imagemUrl,
+        String imagemHoverUrl,
         boolean exibirNoSite,
         boolean destaqueNaHome,
         boolean disponivelUltimaImportacao,
-        LocalDateTime ultimaImportacaoEm
+        LocalDateTime ultimaImportacaoEm,
+        boolean emPromocao,
+        LocalDate dataInicialProm,
+        LocalDate dataFinalProm,
+        BigDecimal porcMargem,
+        BigDecimal porcDesconto,
+        BigDecimal precoPromocao,
+        boolean especial,
+        boolean esgotado
 ) {
 
     public ProdutoResponseDTO(Produto produto) {
@@ -87,10 +96,19 @@ public record ProdutoResponseDTO(
                 produto.getCategoria().getNome(),
                 produto.getCategoria().getCaminho(),
                 produto.getImagemUrl(),
+                produto.getImagemHoverUrl(),
                 produto.isExibirNoSite(),
                 produto.isDestaqueNaHome(),
                 produto.isDisponivelUltimaImportacao(),
-                produto.getUltimaImportacaoEm()
+                produto.getUltimaImportacaoEm(),
+                produto.isEmPromocao(),
+                produto.getDataInicialProm(),
+                produto.getDataFinalProm(),
+                produto.getPorcMargem(),
+                produto.getPorcDesconto(),
+                produto.getPrecoPromocao(),
+                produto.isEspecial(),
+                produto.isEsgotado()
         );
     }
 }

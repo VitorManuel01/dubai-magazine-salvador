@@ -268,6 +268,34 @@ class ImportacaoProdutosServiceTest {
         )));
     }
 
+    @Test
+    void deveIgnorarMarcaFabricanteInativosEPrecoZerado() {
+        CategoriaImportacaoDTO categoria = categoria("778", "FILTRO DE IMPORTAÇÃO", null);
+        RelacaoProdutosOdsDTO relacao = new RelacaoProdutosOdsDTO(
+                List.of(categoria),
+                List.of(
+                        produtoComFornecedor("991001", "PRODUTO VÁLIDO", "778", "ATIVOS", "MARCA A", BigDecimal.TEN),
+                        produtoComFornecedor("991002", "MARCA INATIVA", "778", "ATIVOS", " inativos ", BigDecimal.TEN),
+                        produtoComFornecedor("991003", "FABRICANTE INATIVO", "778", "INATIVOS", "MARCA A", BigDecimal.TEN),
+                        produtoComFornecedor("991004", "PREÇO ZERADO", "778", "ATIVOS", "MARCA A", BigDecimal.ZERO)
+                ),
+                0
+        );
+        when(leitorRelacaoProdutosOds.ler(any())).thenReturn(relacao);
+
+        ImportacaoProdutosResponseDTO resposta = service.importar(new MockMultipartFile(
+                "arquivo",
+                "inventario.ods",
+                "application/vnd.oasis.opendocument.spreadsheet",
+                new byte[]{0x50, 0x4b, 0x03, 0x04}
+        ));
+
+        assertEquals(1, resposta.produtosLidos());
+        assertEquals(3, resposta.linhasIgnoradas());
+        assertEquals(1, contar("SELECT COUNT(*) FROM produtos WHERE codigo_santri = '991001'"));
+        assertEquals(0, contar("SELECT COUNT(*) FROM produtos WHERE codigo_santri IN ('991002', '991003', '991004')"));
+    }
+
     private RelacaoProdutosOdsDTO inventario(String precoVenda) {
         return inventario(precoVenda, "GIZ DE GESSO");
     }
@@ -364,13 +392,31 @@ class ImportacaoProdutosServiceTest {
             String categoriaCodigo,
             BigDecimal precoSemIpi
     ) {
+        return produtoComFornecedor(
+                codigo,
+                descricao,
+                categoriaCodigo,
+                "1 - FABRICANTE TESTE",
+                "TESTE",
+                precoSemIpi
+        );
+    }
+
+    private ProdutoImportacaoDTO produtoComFornecedor(
+            String codigo,
+            String descricao,
+            String categoriaCodigo,
+            String fabricante,
+            String marca,
+            BigDecimal precoSemIpi
+    ) {
         return new ProdutoImportacaoDTO(
                 codigo,
                 descricao,
                 "00000000",
                 descricao,
-                "1 - FABRICANTE TESTE",
-                "TESTE",
+                fabricante,
+                marca,
                 true,
                 "UN",
                 "CX",

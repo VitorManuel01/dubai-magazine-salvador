@@ -5,6 +5,8 @@ import { useDadosProdutos } from '../hooks/useDadosProdutos';
 import { useAuth } from '../context/AuthContext';
 import { useCategoriasPrincipais } from '../hooks/useCategoriasPrincipais';
 import { useSubcategorias } from '../hooks/useSubcategorias';
+import { useAlterarVisibilidadeProdutos } from '../hooks/useAlterarVisibilidadeProdutos';
+import { useExcluirProdutos } from '../hooks/useExcluirProdutos';
 import '../styles/ProdutoList.css';
 
 function ProdutoList() {
@@ -15,19 +17,34 @@ function ProdutoList() {
   const busca = searchParams.get('busca')?.trim() || undefined;
   const categoriaFiltro = subcategoriaCodigo ?? categoriaCodigo;
   const [pagina, setPagina] = useState(0);
+  const [paginaDigitada, setPaginaDigitada] = useState('1');
   const [priceDraft, setPriceDraft] = useState({ min: '', max: '' });
   const [appliedPriceRange, setAppliedPriceRange] = useState<{
     min: number | null;
     max: number | null;
   }>({ min: null, max: null });
   const [sortBy, setSortBy] = useState('featured');
+  const [apenasVisiveis, setApenasVisiveis] = useState(false);
+  const [produtosMarcados, setProdutosMarcados] = useState<Set<string>>(new Set());
+  const alterarVisibilidade = useAlterarVisibilidadeProdutos();
+  const excluirProdutos = useExcluirProdutos();
 
   const {
     data = [],
     paginacao,
     isLoading,
     error,
-  } = useDadosProdutos(categoriaFiltro, pagina, funcao || 'publico', busca);
+  } = useDadosProdutos(
+    categoriaFiltro,
+    pagina,
+    funcao || 'publico',
+    busca,
+    false,
+    true,
+    apenasVisiveis,
+  );
+  const paginasRetornadas = paginacao?.totalPages ?? 0;
+  const totalPaginas = Math.max(paginasRetornadas, 1);
   const { data: categoriasPrincipais = [] } =
     useCategoriasPrincipais(funcao || 'publico');
   const administrador = funcao === 'ROLE_ADMIN';
@@ -65,7 +82,78 @@ function ProdutoList() {
     setPriceDraft({ min: '', max: '' });
     setAppliedPriceRange({ min: null, max: null });
     setSortBy('featured');
+    setApenasVisiveis(false);
+    setProdutosMarcados(new Set());
   }, [busca, categoriaCodigo, subcategoriaCodigo]);
+
+  useEffect(() => {
+    setPaginaDigitada(String(pagina + 1));
+  }, [pagina]);
+
+  useEffect(() => {
+    if (paginasRetornadas > 0 && pagina >= paginasRetornadas) {
+      setPagina(paginasRetornadas - 1);
+    }
+  }, [pagina, paginasRetornadas]);
+
+  const produtosSelecionaveisNaPagina = useMemo(
+    () => data.filter(
+      (produto) => 'codigoSantri' in produto
+        && 'disponivelUltimaImportacao' in produto
+        && produto.disponivelUltimaImportacao,
+    ),
+    [data],
+  );
+  const paginaTodaMarcada = produtosSelecionaveisNaPagina.length > 0
+    && produtosSelecionaveisNaPagina.every(
+      (produto) => 'codigoSantri' in produto && produtosMarcados.has(produto.codigoSantri),
+    );
+
+  const alterarSelecaoProduto = (codigoSantri: string, selecionado: boolean) => {
+    setProdutosMarcados((atuais) => {
+      const novos = new Set(atuais);
+      if (selecionado) novos.add(codigoSantri);
+      else novos.delete(codigoSantri);
+      return novos;
+    });
+    alterarVisibilidade.reset();
+  };
+
+  const alterarSelecaoPagina = (selecionar: boolean) => {
+    setProdutosMarcados((atuais) => {
+      const novos = new Set(atuais);
+      produtosSelecionaveisNaPagina.forEach((produto) => {
+        if (!('codigoSantri' in produto)) return;
+        if (selecionar) novos.add(produto.codigoSantri);
+        else novos.delete(produto.codigoSantri);
+      });
+      return novos;
+    });
+    alterarVisibilidade.reset();
+  };
+
+  const alterarVisibilidadeDosMarcados = (exibirNoSite: boolean) => {
+    const codigos = Array.from(produtosMarcados);
+    if (codigos.length === 0) return;
+    alterarVisibilidade.mutate({ codigosSantri: codigos, exibirNoSite }, {
+      onSuccess: () => setProdutosMarcados(new Set()),
+    });
+  };
+
+  const excluirMarcados = () => {
+    const codigos = Array.from(produtosMarcados);
+    if (codigos.length === 0) return;
+    const confirmou = window.confirm(
+      `Excluir definitivamente ${codigos.length} produto(s) selecionado(s)?\n\n`
+      + 'As imagens gerenciadas e referências na vitrine da loja também serão removidas. '
+      + 'Produtos que continuarem no próximo relatório Santri poderão ser importados novamente.',
+    );
+    if (!confirmou) return;
+
+    excluirProdutos.mutate(codigos, {
+      onSuccess: () => setProdutosMarcados(new Set()),
+    });
+  };
 
   const getPrice = (price: unknown) => {
     const value = Number(String(price));
@@ -81,6 +169,14 @@ function ProdutoList() {
     });
 
     return [...result].sort((left, right) => {
+      if (administrador && 'exibirNoSite' in left && 'exibirNoSite' in right) {
+        const leftVisivel = left.exibirNoSite && left.disponivelUltimaImportacao;
+        const rightVisivel = right.exibirNoSite && right.disponivelUltimaImportacao;
+        if (leftVisivel !== rightVisivel) {
+          return leftVisivel ? -1 : 1;
+        }
+      }
+
       const leftPrice = getPrice(left.precoComIpi);
       const rightPrice = getPrice(right.precoComIpi);
 
@@ -98,7 +194,7 @@ function ProdutoList() {
           return 0;
       }
     });
-  }, [appliedPriceRange.max, appliedPriceRange.min, data, sortBy]);
+  }, [administrador, appliedPriceRange.max, appliedPriceRange.min, data, sortBy]);
 
   const selecionarSubcategoria = (codigo?: string) => {
     const novosParametros = new URLSearchParams(searchParams);
@@ -125,6 +221,18 @@ function ProdutoList() {
     setPriceDraft({ min: '', max: '' });
     setAppliedPriceRange({ min: null, max: null });
     setSortBy('featured');
+    setApenasVisiveis(false);
+  };
+
+  const irParaPagina = () => {
+    const paginaInformada = Number(paginaDigitada);
+    if (!Number.isInteger(paginaInformada)) {
+      setPaginaDigitada(String(pagina + 1));
+      return;
+    }
+    const destino = Math.min(Math.max(paginaInformada, 1), totalPaginas) - 1;
+    setPagina(destino);
+    setPaginaDigitada(String(destino + 1));
   };
 
   if (isLoading) {
@@ -241,6 +349,23 @@ function ProdutoList() {
             )}
           </div>
 
+          {administrador && (
+            <div className="filter-group">
+                <span className="filter-group__title">Visibilidade</span>
+                <label className="filter-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={apenasVisiveis}
+                    onChange={(event) => {
+                      setApenasVisiveis(event.target.checked);
+                      setPagina(0);
+                    }}
+                  />
+                  <span>Apenas visíveis</span>
+                </label>
+            </div>
+          )}
+
           <div className="filter-group">
             <span className="filter-group__title">Preço nesta página</span>
             <div className="price-grid">
@@ -270,10 +395,95 @@ function ProdutoList() {
         </aside>
 
         <section className="catalog-results">
+          {administrador && (
+            <div className="catalog-bulk-actions" aria-label="Ações em lote">
+              <label className="filter-checkbox">
+                <input
+                  type="checkbox"
+                  checked={paginaTodaMarcada}
+                  onChange={(event) => alterarSelecaoPagina(event.target.checked)}
+                  disabled={produtosSelecionaveisNaPagina.length === 0
+                    || alterarVisibilidade.isPending
+                    || excluirProdutos.isPending}
+                />
+                <span>Selecionar página</span>
+              </label>
+              <strong>{produtosMarcados.size} selecionado(s)</strong>
+              <button
+                className="btn btn-success"
+                type="button"
+                onClick={() => alterarVisibilidadeDosMarcados(true)}
+                disabled={produtosMarcados.size === 0
+                  || alterarVisibilidade.isPending
+                  || excluirProdutos.isPending}
+              >
+                {alterarVisibilidade.isPending && alterarVisibilidade.variables?.exibirNoSite
+                  ? 'Exibindo...'
+                  : 'Exibir todos selecionados'}
+              </button>
+              <button
+                className="btn btn-danger"
+                type="button"
+                onClick={() => alterarVisibilidadeDosMarcados(false)}
+                disabled={produtosMarcados.size === 0
+                  || alterarVisibilidade.isPending
+                  || excluirProdutos.isPending}
+              >
+                {alterarVisibilidade.isPending && alterarVisibilidade.variables?.exibirNoSite === false
+                  ? 'Ocultando...'
+                  : 'Ocultar todos selecionados'}
+              </button>
+              <button
+                className="btn btn-outline-danger"
+                type="button"
+                onClick={excluirMarcados}
+                disabled={produtosMarcados.size === 0
+                  || alterarVisibilidade.isPending
+                  || excluirProdutos.isPending}
+              >
+                {excluirProdutos.isPending ? 'Excluindo...' : 'Excluir todos selecionados'}
+              </button>
+              {produtosMarcados.size > 0 && (
+                <button
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={() => setProdutosMarcados(new Set())}
+                  disabled={alterarVisibilidade.isPending || excluirProdutos.isPending}
+                >
+                  Limpar seleção
+                </button>
+              )}
+              {alterarVisibilidade.isSuccess && (
+                <span className="catalog-bulk-actions__success">
+                  {alterarVisibilidade.data.produtosAlterados} produto(s) passaram a ser{' '}
+                  {alterarVisibilidade.data.exibirNoSite ? 'exibidos' : 'ocultados'}.
+                </span>
+              )}
+              {alterarVisibilidade.isError && (
+                <span className="catalog-bulk-actions__error">
+                  Não foi possível {alterarVisibilidade.variables?.exibirNoSite
+                    ? 'exibir'
+                    : 'ocultar'} os produtos selecionados.
+                </span>
+              )}
+              {excluirProdutos.isSuccess && (
+                <span className="catalog-bulk-actions__success">
+                  {excluirProdutos.data.produtosExcluidos} produto(s) foram excluídos.
+                </span>
+              )}
+              {excluirProdutos.isError && (
+                <span className="catalog-bulk-actions__error">
+                  Não foi possível excluir os produtos selecionados.
+                </span>
+              )}
+            </div>
+          )}
           <div className="catalog-results__bar">
             <span>
               {administrador
-                ? 'Visão administrativa: produtos visíveis e ocultos'
+                ? apenasVisiveis
+                  ? 'Visão administrativa: apenas produtos visíveis'
+                  : 'Visão administrativa: produtos visíveis primeiro'
                 : 'Produtos disponíveis no site'}
             </span>
             <span className="catalog-results__hint">
@@ -300,6 +510,9 @@ function ProdutoList() {
                     {...dadosProdutos}
                     limiteDestaquesAtingido={produtosSelecionados.length >= 3}
                     carregandoLimiteDestaques={carregandoProdutosSelecionados}
+                    selecionado={'codigoSantri' in dadosProdutos
+                      && produtosMarcados.has(dadosProdutos.codigoSantri)}
+                    onSelecionadoChange={administrador ? alterarSelecaoProduto : undefined}
                   />
                 </div>
               ))}
@@ -310,15 +523,41 @@ function ProdutoList() {
             <nav className="catalog-pagination" aria-label="Paginação de produtos">
               <button
                 type="button"
+                onClick={() => setPagina(0)}
+                disabled={paginacao?.first}
+              >
+                <i className="bi bi-chevron-bar-left" />
+                Primeira
+              </button>
+              <button
+                type="button"
                 onClick={() => setPagina((atual) => Math.max(0, atual - 1))}
                 disabled={paginacao?.first}
               >
                 <i className="bi bi-chevron-left" />
                 Anterior
               </button>
-              <span>
-                Página {(paginacao?.number ?? 0) + 1} de {paginacao?.totalPages}
-              </span>
+              <form
+                className="catalog-pagination__current"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  irParaPagina();
+                }}
+              >
+                <label htmlFor="pagina-catalogo">Página</label>
+                <input
+                  id="pagina-catalogo"
+                  type="number"
+                  min="1"
+                  max={totalPaginas}
+                  inputMode="numeric"
+                  value={paginaDigitada}
+                  onChange={(event) => setPaginaDigitada(event.target.value)}
+                  onBlur={irParaPagina}
+                  aria-label={`Ir para uma página entre 1 e ${totalPaginas}`}
+                />
+                <span>de {totalPaginas}</span>
+              </form>
               <button
                 type="button"
                 onClick={() => setPagina((atual) => atual + 1)}
@@ -326,6 +565,14 @@ function ProdutoList() {
               >
                 Próxima
                 <i className="bi bi-chevron-right" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPagina(totalPaginas - 1)}
+                disabled={paginacao?.last}
+              >
+                Última
+                <i className="bi bi-chevron-bar-right" />
               </button>
             </nav>
           )}
@@ -345,6 +592,14 @@ function ProdutoList() {
           <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">
             <i className="bi bi-file-earmark-arrow-up me-2" />
             Importar relação de produtos
+          </Link>
+          <Link className="btn btn-outline-primary" to="/admin/importacao-promocoes">
+            <i className="bi bi-tags me-2" />
+            Importar promoções
+          </Link>
+          <Link className="btn btn-outline-primary" to="/admin/importacao-estoque">
+            <i className="bi bi-boxes me-2" />
+            Atualizar estoque
           </Link>
         </div>
       )}

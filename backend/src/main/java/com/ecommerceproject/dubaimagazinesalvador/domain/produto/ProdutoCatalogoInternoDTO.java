@@ -3,7 +3,8 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record ProdutoCatalogoPublicoDTO(
+public record ProdutoCatalogoInternoDTO(
+        String codigoSantri,
         String nomeExibidoSite,
         String marca,
         BigDecimal precoComIpi,
@@ -18,9 +19,9 @@ public record ProdutoCatalogoPublicoDTO(
         String imagemUrl,
         String imagemHoverUrl
 ) {
-
-    public ProdutoCatalogoPublicoDTO(Produto produto) {
+    public ProdutoCatalogoInternoDTO(Produto produto) {
         this(
+                produto.getCodigoSantri(),
                 produto.getNomeExibidoSite(),
                 produto.getMarca(),
                 produto.getPrecoComIpi(),

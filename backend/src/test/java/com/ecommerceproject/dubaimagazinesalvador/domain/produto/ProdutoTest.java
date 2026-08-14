@@ -1,6 +1,8 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,6 +51,65 @@ class ProdutoTest {
 
         assertEquals("GIZ DE GESSO NOVO", produto.getNome());
         assertEquals("Giz branco escolar", produto.getNomeExibidoSite());
+    }
+
+    @Test
+    void deveAtualizarImagemPrincipalESecundariaIndependentemente() {
+        Produto produto = new Produto(
+                produtoImportado("GIZ DE GESSO", "5.49", "13.00"),
+                categoria,
+                LocalDateTime.now()
+        );
+
+        produto.atualizarApresentacao(
+                "Giz de gesso",
+                true,
+                false,
+                "/uploads/produtos/principal.webp",
+                "/uploads/produtos/hover.webp"
+        );
+
+        assertEquals("/uploads/produtos/principal.webp", produto.getImagemUrl());
+        assertEquals("/uploads/produtos/hover.webp", produto.getImagemHoverUrl());
+    }
+
+    @Test
+    void deveRetirarDestaqueAoOcultarProdutoNoSite() {
+        Produto produto = new Produto(
+                produtoImportado("GIZ DE GESSO", "5.49", "13.00"),
+                categoria,
+                LocalDateTime.now()
+        );
+        produto.atualizarApresentacao("Giz de gesso", true, true, null);
+
+        produto.ocultarNoSite();
+
+        assertFalse(produto.isExibirNoSite());
+        assertFalse(produto.isDestaqueNaHome());
+    }
+
+    @Test
+    void deveIdentificarProdutoSemEstoqueComoEsgotado() {
+        Produto produto = new Produto(
+                new ProdutoRequestDTO(
+                        "2672",
+                        "GIZ DE GESSO",
+                        "GIZ DE GESSO",
+                        "96099000",
+                        "UN",
+                        "DELTA GIZ",
+                        null,
+                        BigDecimal.ZERO,
+                        BigDecimal.TEN,
+                        BigDecimal.ZERO,
+                        "001",
+                        null,
+                        true
+                ),
+                categoria
+        );
+
+        assertTrue(produto.isEsgotado());
     }
 
     private ProdutoImportacaoDTO produtoImportado(

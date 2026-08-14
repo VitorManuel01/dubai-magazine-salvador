@@ -38,6 +38,25 @@ public class ApresentacaoProdutoService {
             boolean destaqueNaHome,
             MultipartFile imagem
     ) {
+        return atualizar(
+                codigoSantri,
+                nomeExibidoSite,
+                exibirNoSite,
+                destaqueNaHome,
+                imagem,
+                null
+        );
+    }
+
+    @Transactional
+    public ProdutoResponseDTO atualizar(
+            String codigoSantri,
+            String nomeExibidoSite,
+            boolean exibirNoSite,
+            boolean destaqueNaHome,
+            MultipartFile imagem,
+            MultipartFile imagemHover
+    ) {
         controleSelecaoHomeRepository.bloquearParaAtualizacao()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -77,11 +96,15 @@ public class ApresentacaoProdutoService {
         String novaImagemUrl = imagem == null || imagem.isEmpty()
                 ? null
                 : armazenamentoImagem.salvar(imagem);
+        String novaImagemHoverUrl = imagemHover == null || imagemHover.isEmpty()
+                ? null
+                : armazenamentoImagem.salvar(imagemHover);
         produto.atualizarApresentacao(
                 nomeNormalizado,
                 exibirNoSite,
                 destaqueNaHome,
-                novaImagemUrl
+                novaImagemUrl,
+                novaImagemHoverUrl
         );
 
         return new ProdutoResponseDTO(produto);

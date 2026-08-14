@@ -20,11 +20,13 @@ import org.springframework.web.server.ResponseStatusException;
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogoPublicoDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogoInternoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdutoService;
 
 @RestController
 public class ProdController {
@@ -32,15 +34,18 @@ public class ProdController {
     private final ProdutoRepository produtoRepository;
     private final CategoriaRepository categoriaRepository;
     private final ApresentacaoProdutoService apresentacaoProdutoService;
+    private final ExclusaoProdutoService exclusaoProdutoService;
 
     public ProdController(
             ProdutoRepository produtoRepository,
             CategoriaRepository categoriaRepository,
-            ApresentacaoProdutoService apresentacaoProdutoService
+            ApresentacaoProdutoService apresentacaoProdutoService,
+            ExclusaoProdutoService exclusaoProdutoService
     ) {
         this.produtoRepository = produtoRepository;
         this.categoriaRepository = categoriaRepository;
         this.apresentacaoProdutoService = apresentacaoProdutoService;
+        this.exclusaoProdutoService = exclusaoProdutoService;
     }
 
     @PostMapping("/produto")
@@ -72,13 +77,14 @@ public class ProdController {
                 somenteDestaques,
                 pagina,
                 tamanho,
+                false,
                 false
         ).map(ProdutoCatalogoPublicoDTO::new);
     }
 
-    @GetMapping("/admin/produtos")
+    @GetMapping("/interno/produtos")
     @Transactional(readOnly = true)
-    public Page<ProdutoResponseDTO> getAllAdministracao(
+    public Page<ProdutoCatalogoInternoDTO> getAllInterno(
             @RequestParam(required = false) String categoriaCodigo,
             @RequestParam(required = false) String busca,
             @RequestParam(defaultValue = "false") boolean somenteDestaques,
@@ -91,6 +97,28 @@ public class ProdController {
                 somenteDestaques,
                 pagina,
                 tamanho,
+                false,
+                true
+        ).map(ProdutoCatalogoInternoDTO::new);
+    }
+
+    @GetMapping("/admin/produtos")
+    @Transactional(readOnly = true)
+    public Page<ProdutoResponseDTO> getAllAdministracao(
+            @RequestParam(required = false) String categoriaCodigo,
+            @RequestParam(required = false) String busca,
+            @RequestParam(defaultValue = "false") boolean somenteDestaques,
+            @RequestParam(defaultValue = "false") boolean apenasVisiveis,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "24") int tamanho
+    ) {
+        return buscarCatalogo(
+                categoriaCodigo,
+                busca,
+                somenteDestaques,
+                pagina,
+                tamanho,
+                !apenasVisiveis,
                 true
         ).map(ProdutoResponseDTO::new);
     }
@@ -101,7 +129,8 @@ public class ProdController {
             boolean somenteDestaques,
             int pagina,
             int tamanho,
-            boolean incluirOcultos
+            boolean incluirOcultos,
+            boolean pesquisarCodigoSantri
     ) {
         if (pagina < 0 || tamanho < 1 || tamanho > 60) {
             throw new ResponseStatusException(
@@ -115,23 +144,28 @@ public class ProdController {
         String buscaNormalizada = busca == null || busca.isBlank()
                 ? null
                 : busca.trim();
+        PageRequest paginacao = PageRequest.of(pagina, tamanho);
+        if (pesquisarCodigoSantri && !incluirOcultos) {
+            return produtoRepository.findCatalogoInternoPorCategoria(
+                    categoriaNormalizada,
+                    buscaNormalizada,
+                    somenteDestaques,
+                    paginacao
+            );
+        }
         return produtoRepository.findCatalogoPorCategoria(
                 categoriaNormalizada,
                 buscaNormalizada,
                 incluirOcultos,
                 somenteDestaques,
-                PageRequest.of(pagina, tamanho)
+                paginacao
         );
     }
 
     @DeleteMapping("/produto/{codigoSantri}")
     public ResponseEntity<String> deleteProduto(@PathVariable String codigoSantri) {
-        return produtoRepository.findById(codigoSantri)
-                .map(produto -> {
-                    produtoRepository.delete(produto);
-                    return ResponseEntity.ok("Produto deletado com sucesso!");
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        exclusaoProdutoService.excluir(codigoSantri);
+        return ResponseEntity.ok("Produto deletado com sucesso!");
     }
 
     @PutMapping(
@@ -143,7 +177,8 @@ public class ProdController {
             @RequestParam(required = false) String nomeExibidoSite,
             @RequestParam boolean exibirNoSite,
             @RequestParam boolean destaqueNaHome,
-            @RequestParam(required = false) MultipartFile imagem
+            @RequestParam(required = false) MultipartFile imagem,
+            @RequestParam(required = false) MultipartFile imagemHover
     ) {
         return ResponseEntity.ok(
                 apresentacaoProdutoService.atualizar(
@@ -151,7 +186,8 @@ public class ProdController {
                         nomeExibidoSite,
                         exibirNoSite,
                         destaqueNaHome,
-                        imagem
+                        imagem,
+                        imagemHover
                 )
         );
     }

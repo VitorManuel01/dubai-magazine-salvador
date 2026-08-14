@@ -47,7 +47,16 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
                         )
                     )
               )
-            ORDER BY produto.nomeExibidoSite ASC
+            ORDER BY
+                CASE
+                    WHEN :incluirOcultos = true
+                         AND produto.exibirNoSite = true
+                         AND produto.disponivelUltimaImportacao = true
+                    THEN 0
+                    WHEN :incluirOcultos = true THEN 1
+                    ELSE 0
+                END ASC,
+                produto.nomeExibidoSite ASC
             """,
             countQuery = """
             SELECT COUNT(produto)
@@ -87,6 +96,54 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
             @Param("categoriaCodigo") String categoriaCodigo,
             @Param("busca") String busca,
             @Param("incluirOcultos") boolean incluirOcultos,
+            @Param("somenteDestaques") boolean somenteDestaques,
+            Pageable pageable
+    );
+
+    @Query(
+            value = """
+            SELECT produto
+            FROM Produto produto
+            JOIN FETCH produto.categoria categoria
+            WHERE produto.exibirNoSite = true
+              AND produto.disponivelUltimaImportacao = true
+              AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
+              AND (
+                    :categoriaCodigo IS NULL
+                    OR categoria.codigo = :categoriaCodigo
+                    OR categoria.codigo LIKE CONCAT(:categoriaCodigo, '.%')
+              )
+              AND (
+                    :busca IS NULL
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
+              )
+            ORDER BY produto.nomeExibidoSite ASC
+            """,
+            countQuery = """
+            SELECT COUNT(produto)
+            FROM Produto produto
+            JOIN produto.categoria categoria
+            WHERE produto.exibirNoSite = true
+              AND produto.disponivelUltimaImportacao = true
+              AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
+              AND (
+                    :categoriaCodigo IS NULL
+                    OR categoria.codigo = :categoriaCodigo
+                    OR categoria.codigo LIKE CONCAT(:categoriaCodigo, '.%')
+              )
+              AND (
+                    :busca IS NULL
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
+              )
+            """
+    )
+    Page<Produto> findCatalogoInternoPorCategoria(
+            @Param("categoriaCodigo") String categoriaCodigo,
+            @Param("busca") String busca,
             @Param("somenteDestaques") boolean somenteDestaques,
             Pageable pageable
     );

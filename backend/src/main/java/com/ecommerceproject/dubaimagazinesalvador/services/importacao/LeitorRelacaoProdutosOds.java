@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -33,7 +34,10 @@ import javax.xml.stream.XMLStreamReader;
 import org.springframework.stereotype.Component;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.CategoriaImportacaoDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.EstoqueProdutoImportacaoDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.PromocaoProdutoImportacaoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.RelacaoProdutosOdsDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.RelacaoPromocoesOdsDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoImportacaoDTO;
 
 @Component
@@ -50,6 +54,8 @@ public class LeitorRelacaoProdutosOds {
     private static final int MAX_COLUNAS_LIDAS = 80; // máximo de colunas que serão lidas de cada linha da planilha ODS
     private static final int MAX_LINHAS = 25_000; // máximo de linhas que serão lidas da planilha ODS
     private static final int MAX_PRODUTOS = 25_000; // máximo de produtos únicos aceitos em uma importação
+    private static final int MAX_LINHAS_INVENTARIO = 120_000;
+    private static final int MAX_REGISTROS_INVENTARIO = 100_000;
     private static final int MAX_CARACTERES_CELULA = 75; // máximo de caracteres Unicode por célula
     private static final int MAX_ENTRADAS_ZIP = 100; // máximo de entradas (arquivos internos) que serão lidas do arquivo ODS compactado (ZIP)
     private static final long MAX_ARQUIVO_BYTES = 20L * 1024L * 1024L; // tamanho máximo do arquivo ODS que será aceito (20 MB)
@@ -103,6 +109,57 @@ public class LeitorRelacaoProdutosOds {
             throw e;
         } catch (IOException e) {
             throw new ImportacaoOdsException("Não foi possível abrir o arquivo ODS.", e);
+        } finally {
+            apagarTemporario(temporario);
+        }
+    }
+
+    public RelacaoPromocoesOdsDTO lerPromocoes(InputStream arquivo) {
+        Path temporario = null;
+        try {
+            temporario = copiarParaTemporario(arquivo);
+            try (ZipFile zip = new ZipFile(temporario.toFile(), StandardCharsets.UTF_8)) {
+                ZipEntry contentXml = validarEstruturaZip(zip);
+                validarMimetype(zip);
+                try (InputStream content = new InputStreamLimitado(
+                        zip.getInputStream(contentXml), MAX_CONTENT_XML_BYTES
+                )) {
+                    return lerContentXmlPromocoes(content);
+                }
+            }
+        } catch (ImportacaoOdsException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new ImportacaoOdsException("Não foi possível abrir o arquivo ODS de promoções.", e);
+        } finally {
+            apagarTemporario(temporario);
+        }
+    }
+
+    public int lerInventario(
+            InputStream arquivo,
+            Consumer<EstoqueProdutoImportacaoDTO> consumidor
+    ) {
+        if (consumidor == null) {
+            throw new IllegalArgumentException("O consumidor dos registros é obrigatório.");
+        }
+        Path temporario = null;
+        try {
+            temporario = copiarParaTemporario(arquivo);
+            try (ZipFile zip = new ZipFile(temporario.toFile(), StandardCharsets.UTF_8)) {
+                ZipEntry contentXml = validarEstruturaZip(zip);
+                validarMimetype(zip);
+                try (InputStream content = new InputStreamLimitado(
+                        zip.getInputStream(contentXml),
+                        MAX_CONTENT_XML_BYTES
+                )) {
+                    return lerContentXmlInventario(content, consumidor);
+                }
+            }
+        } catch (ImportacaoOdsException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new ImportacaoOdsException("Não foi possível abrir o inventário ODS.", e);
         } finally {
             apagarTemporario(temporario);
         }
@@ -264,6 +321,404 @@ public class LeitorRelacaoProdutosOds {
         }
     }
 
+    private RelacaoPromocoesOdsDTO lerContentXmlPromocoes(InputStream contentXml) {
+        XMLInputFactory factory = XMLInputFactory.newFactory();
+        configurarXmlSeguro(factory);
+        try {
+            XMLStreamReader reader = factory.createXMLStreamReader(
+                    contentXml, StandardCharsets.UTF_8.name()
+            );
+            try {
+                return percorrerPromocoes(reader);
+            } finally {
+                reader.close();
+            }
+        } catch (XMLStreamException e) {
+            throw new ImportacaoOdsException("O conteúdo XML do ODS está inválido.", e);
+        }
+    }
+
+    private int lerContentXmlInventario(
+            InputStream contentXml,
+            Consumer<EstoqueProdutoImportacaoDTO> consumidor
+    ) {
+        XMLInputFactory factory = XMLInputFactory.newFactory();
+        configurarXmlSeguro(factory);
+        try {
+            XMLStreamReader reader = factory.createXMLStreamReader(
+                    contentXml,
+                    StandardCharsets.UTF_8.name()
+            );
+            try {
+                return percorrerInventario(reader, consumidor);
+            } finally {
+                reader.close();
+            }
+        } catch (XMLStreamException e) {
+            throw new ImportacaoOdsException("O conteúdo XML do inventário ODS está inválido.", e);
+        }
+    }
+
+    private int percorrerInventario(
+            XMLStreamReader reader,
+            Consumer<EstoqueProdutoImportacaoDTO> consumidor
+    ) throws XMLStreamException {
+        boolean dentroDePlanilhaDoInventario = false;
+        String nomePlanilhaPrincipal = null;
+        Integer colunaCodigo = null;
+        Integer colunaQuantidade = null;
+        int numeroLinha = 0;
+        int registros = 0;
+
+        while (reader.hasNext()) {
+            int evento = reader.next();
+            if (evento == XMLStreamConstants.DTD
+                    || evento == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
+            }
+            if (evento == XMLStreamConstants.START_ELEMENT
+                    && elemento(reader, TABLE_NS, "table")
+                    && !dentroDePlanilhaDoInventario) {
+                String nomePlanilha = reader.getAttributeValue(TABLE_NS, "name");
+                if (nomePlanilhaPrincipal == null) {
+                    nomePlanilhaPrincipal = nomePlanilha;
+                }
+                dentroDePlanilhaDoInventario = ehPlanilhaDoInventario(
+                        nomePlanilhaPrincipal,
+                        nomePlanilha
+                );
+                continue;
+            }
+            if (evento == XMLStreamConstants.END_ELEMENT
+                    && elemento(reader, TABLE_NS, "table")
+                    && dentroDePlanilhaDoInventario) {
+                dentroDePlanilhaDoInventario = false;
+                continue;
+            }
+            if (evento != XMLStreamConstants.START_ELEMENT
+                    || !elemento(reader, TABLE_NS, "table-row")
+                    || !dentroDePlanilhaDoInventario) {
+                continue;
+            }
+
+            numeroLinha++;
+            if (numeroLinha > MAX_LINHAS_INVENTARIO) {
+                throw new ImportacaoOdsException(
+                        "O inventário ultrapassa o limite de 120.000 linhas."
+                );
+            }
+
+            if (colunaCodigo == null || colunaQuantidade == null) {
+                Map<String, Integer> cabecalhos = mapearCabecalhos(
+                        lerLinha(reader, numeroLinha)
+                );
+                if (cabecalhos.containsKey("produto")
+                        && cabecalhos.containsKey("quantidade")) {
+                    colunaCodigo = cabecalhos.get("produto");
+                    colunaQuantidade = cabecalhos.get("quantidade");
+                }
+                continue;
+            }
+
+            CamposInventario campos = lerCamposInventario(
+                    reader,
+                    numeroLinha,
+                    colunaCodigo,
+                    colunaQuantidade
+            );
+            String codigo = normalizarCodigoProduto(campos.codigo());
+            if (codigo == null || campos.quantidade().isBlank()) {
+                continue;
+            }
+
+            BigDecimal quantidade = decimalOuZero(
+                    campos.quantidade(),
+                    numeroLinha,
+                    "Quantidade"
+            );
+            consumidor.accept(new EstoqueProdutoImportacaoDTO(codigo, quantidade));
+            registros++;
+            if (registros > MAX_REGISTROS_INVENTARIO) {
+                throw new ImportacaoOdsException(
+                        "O inventário ultrapassa o limite de 100.000 produtos."
+                );
+            }
+        }
+
+        if (colunaCodigo == null || colunaQuantidade == null) {
+            throw new ImportacaoOdsException(
+                    "O inventário não possui as colunas Produto e Quantidade."
+            );
+        }
+        if (registros == 0) {
+            throw new ImportacaoOdsException(
+                    "Nenhum produto com código e quantidade foi encontrado no inventário."
+            );
+        }
+        return registros;
+    }
+
+    private boolean ehPlanilhaDoInventario(String nomePrincipal, String nomeCandidata) {
+        if (nomePrincipal == null || nomeCandidata == null) {
+            return nomePrincipal == null && nomeCandidata == null;
+        }
+        if (nomePrincipal.equals(nomeCandidata)) {
+            return true;
+        }
+        return nomeCandidata.matches(Pattern.quote(nomePrincipal) + "_\\d+");
+    }
+
+    private CamposInventario lerCamposInventario(
+            XMLStreamReader reader,
+            int numeroLinha,
+            int colunaCodigo,
+            int colunaQuantidade
+    ) throws XMLStreamException {
+        String codigo = "";
+        String quantidade = "";
+        int colunaAtual = 0;
+
+        while (reader.hasNext()) {
+            int evento = reader.next();
+            if (evento == XMLStreamConstants.END_ELEMENT
+                    && elemento(reader, TABLE_NS, "table-row")) {
+                return new CamposInventario(codigo, quantidade);
+            }
+            if (evento == XMLStreamConstants.DTD
+                    || evento == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
+            }
+            if (evento != XMLStreamConstants.START_ELEMENT) {
+                continue;
+            }
+
+            if (elemento(reader, TABLE_NS, "table-cell")) {
+                String formula = reader.getAttributeValue(TABLE_NS, "formula");
+                if (formula != null && !formula.isBlank()) {
+                    throw new ImportacaoOdsException(
+                            "O ODS contém fórmulas. Exporte somente valores antes da importação."
+                    );
+                }
+                int proximaColuna = avancarColuna(colunaAtual, repeticoes(reader));
+                boolean contemCodigo = colunaCodigo >= colunaAtual
+                        && colunaCodigo < proximaColuna;
+                boolean contemQuantidade = colunaQuantidade >= colunaAtual
+                        && colunaQuantidade < proximaColuna;
+                if (contemCodigo || contemQuantidade) {
+                    if (contemCodigo) {
+                        codigo = lerCodigoInventario(reader);
+                    } else {
+                        quantidade = lerCelula(reader, numeroLinha, colunaAtual + 1);
+                    }
+                } else {
+                    pularCelula(reader);
+                }
+                colunaAtual = proximaColuna;
+            } else if (elemento(reader, TABLE_NS, "covered-table-cell")) {
+                colunaAtual = avancarColuna(colunaAtual, repeticoes(reader));
+            }
+        }
+        return new CamposInventario(codigo, quantidade);
+    }
+
+    private String lerCodigoInventario(XMLStreamReader reader) throws XMLStreamException {
+        StringBuilder texto = new StringBuilder();
+        int profundidade = 1;
+        int dentroDeParagrafo = 0;
+        boolean excedeuLimite = false;
+
+        while (reader.hasNext() && profundidade > 0) {
+            int evento = reader.next();
+            if (evento == XMLStreamConstants.START_ELEMENT) {
+                profundidade++;
+                if (elemento(reader, TEXT_NS, "p")) {
+                    dentroDeParagrafo++;
+                }
+            } else if (evento == XMLStreamConstants.CHARACTERS && dentroDeParagrafo > 0) {
+                String trecho = reader.getText();
+                int tamanhoAtual = texto.codePointCount(0, texto.length());
+                int tamanhoTrecho = trecho.codePointCount(0, trecho.length());
+                if (tamanhoAtual + tamanhoTrecho > MAX_CARACTERES_CELULA) {
+                    excedeuLimite = true;
+                } else if (!excedeuLimite) {
+                    texto.append(trecho);
+                }
+            } else if (evento == XMLStreamConstants.DTD
+                    || evento == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
+            } else if (evento == XMLStreamConstants.END_ELEMENT) {
+                if (elemento(reader, TEXT_NS, "p")) {
+                    dentroDeParagrafo--;
+                }
+                profundidade--;
+            }
+        }
+
+        return excedeuLimite ? "" : normalizarTexto(texto.toString());
+    }
+
+    private int avancarColuna(int colunaAtual, int repeticoes) {
+        long proxima = (long) colunaAtual + repeticoes;
+        return (int) Math.min(proxima, MAX_COLUNAS_LIDAS);
+    }
+
+    private void pularCelula(XMLStreamReader reader) throws XMLStreamException {
+        int profundidade = 1;
+        while (reader.hasNext() && profundidade > 0) {
+            int evento = reader.next();
+            if (evento == XMLStreamConstants.START_ELEMENT) {
+                profundidade++;
+            } else if (evento == XMLStreamConstants.END_ELEMENT) {
+                profundidade--;
+            } else if (evento == XMLStreamConstants.DTD
+                    || evento == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
+            }
+        }
+    }
+
+    private record CamposInventario(String codigo, String quantidade) {
+    }
+
+    private RelacaoPromocoesOdsDTO percorrerPromocoes(XMLStreamReader reader)
+            throws XMLStreamException {
+        Map<String, PromocaoProdutoImportacaoDTO> promocoes = new LinkedHashMap<>();
+        Map<String, Integer> cabecalhos = null;
+        boolean dentroDaPrimeiraPlanilha = false;
+        int numeroLinha = 0;
+        int linhasIgnoradas = 0;
+
+        while (reader.hasNext()) {
+            int event = reader.next();
+            if (event == XMLStreamConstants.DTD || event == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException(
+                        "O conteúdo XML do ODS contém DTD ou entidade, o que não é permitido."
+                );
+            }
+            if (event == XMLStreamConstants.START_ELEMENT
+                    && elemento(reader, TABLE_NS, "table")
+                    && !dentroDaPrimeiraPlanilha) {
+                dentroDaPrimeiraPlanilha = true;
+                continue;
+            }
+            if (event == XMLStreamConstants.END_ELEMENT
+                    && elemento(reader, TABLE_NS, "table")
+                    && dentroDaPrimeiraPlanilha) {
+                break;
+            }
+            if (event != XMLStreamConstants.START_ELEMENT
+                    || !elemento(reader, TABLE_NS, "table-row")
+                    || !dentroDaPrimeiraPlanilha) {
+                continue;
+            }
+
+            numeroLinha++;
+            if (numeroLinha > MAX_LINHAS) {
+                throw new ImportacaoOdsException("O ODS ultrapassa o limite de 25.000 linhas.");
+            }
+            List<String> colunas = lerLinha(reader, numeroLinha);
+            if (cabecalhos == null) {
+                Map<String, Integer> possiveis = mapearCabecalhos(colunas);
+                if (possiveis.containsKey("codigo")
+                        && possiveis.containsKey("preco promocao")
+                        && possiveis.containsKey("data inicial")
+                        && possiveis.containsKey("data final")) {
+                    validarCabecalhosPromocao(possiveis);
+                    cabecalhos = possiveis;
+                }
+                continue;
+            }
+            if (linhaVazia(colunas)) {
+                continue;
+            }
+
+            String codigo = normalizarCodigoProduto(campo(colunas, cabecalhos, "codigo"));
+            if (codigo == null) {
+                linhasIgnoradas++;
+                continue;
+            }
+            if (promocoes.containsKey(codigo)) {
+                throw erroLinha(numeroLinha, "código Santri duplicado: " + codigo + ".");
+            }
+
+            LocalDate inicio = dataPromocao(
+                    campo(colunas, cabecalhos, "data inicial"), numeroLinha, "Data inicial"
+            );
+            LocalDate fim = dataPromocao(
+                    campo(colunas, cabecalhos, "data final"), numeroLinha, "Data final"
+            );
+            if (inicio.isAfter(fim)) {
+                throw erroLinha(numeroLinha, "a data inicial da promoção é posterior à data final.");
+            }
+            BigDecimal preco = decimalOpcional(
+                    campo(colunas, cabecalhos, "preco promocao"), numeroLinha, "Preço promoção"
+            );
+            if (preco == null || preco.signum() <= 0) {
+                throw erroLinha(numeroLinha, "Preço promoção deve ser maior que zero.");
+            }
+            boolean especial = Boolean.TRUE.equals(booleanoOpcional(
+                    campo(colunas, cabecalhos, "especial"), numeroLinha, "Especial"
+            ));
+            boolean desativada = Boolean.TRUE.equals(booleanoOpcional(
+                    campo(colunas, cabecalhos, "desat prom"), numeroLinha, "Desat. prom."
+            ));
+            promocoes.put(codigo, new PromocaoProdutoImportacaoDTO(
+                    codigo,
+                    inicio,
+                    fim,
+                    decimalOpcional(campo(colunas, cabecalhos, "margem"), numeroLinha, "% Margem"),
+                    decimalOpcional(campo(colunas, cabecalhos, "desconto"), numeroLinha, "% Desconto"),
+                    preco,
+                    especial,
+                    !desativada
+            ));
+            if (promocoes.size() > MAX_PRODUTOS) {
+                throw new ImportacaoOdsException("O ODS ultrapassa o limite de 25.000 produtos.");
+            }
+        }
+
+        if (cabecalhos == null) {
+            throw new ImportacaoOdsException("A planilha não possui o cabeçalho de Promoções de Venda.");
+        }
+        if (promocoes.isEmpty()) {
+            throw new ImportacaoOdsException("Nenhum produto promocional foi encontrado no ODS.");
+        }
+        return new RelacaoPromocoesOdsDTO(List.copyOf(promocoes.values()), linhasIgnoradas);
+    }
+
+    private void validarCabecalhosPromocao(Map<String, Integer> cabecalhos) {
+        List<String> obrigatorios = List.of(
+                "codigo", "data inicial", "data final", "margem", "desconto",
+                "preco promocao", "especial", "desat prom"
+        );
+        List<String> ausentes = obrigatorios.stream()
+                .filter(cabecalho -> !cabecalhos.containsKey(cabecalho))
+                .toList();
+        if (!ausentes.isEmpty()) {
+            throw new ImportacaoOdsException(
+                    "A relação de promoções não possui as colunas obrigatórias: "
+                            + String.join(", ", ausentes) + "."
+            );
+        }
+    }
+
+    private LocalDate dataPromocao(String valor, int numeroLinha, String campo) {
+        String normalizado = normalizarTexto(valor);
+        try {
+            return LocalDate.parse(normalizado, DATA_BRASILEIRA);
+        } catch (DateTimeParseException e) {
+            throw erroLinha(numeroLinha, campo + " inválida: " + valor);
+        }
+    }
+
     private RelacaoProdutosOdsDTO percorrerPlanilha(XMLStreamReader reader)
             throws XMLStreamException {
         Map<String, CategoriaImportacaoDTO> categorias = new LinkedHashMap<>();
@@ -357,11 +812,12 @@ public class LeitorRelacaoProdutosOds {
                     numeroLinha,
                     "Estoque"
             );
-            if (!Boolean.TRUE.equals(ativo)
-                    || estoque == null
-                    || estoque.signum() <= 0) {
+            if (!Boolean.TRUE.equals(ativo)) {
                 linhasIgnoradas++;
                 continue;
+            }
+            if (estoque == null) {
+                estoque = BigDecimal.ZERO;
             }
 
             ProdutoImportacaoDTO produto = montarProduto(
@@ -388,7 +844,7 @@ public class LeitorRelacaoProdutosOds {
         }
         if (categorias.isEmpty() || produtos.isEmpty()) {
             throw new ImportacaoOdsException(
-                    "Nenhuma categoria ou produto ativo com estoque positivo foi encontrado no ODS."
+                    "Nenhuma categoria ou produto ativo foi encontrado no ODS."
             );
         }
 

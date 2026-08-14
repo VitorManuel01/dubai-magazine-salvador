@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.RelacaoProdutosOdsDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.RelacaoPromocoesOdsDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.importacao.EstoqueProdutoImportacaoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoImportacaoDTO;
 
 class LeitorRelacaoProdutosOdsTest {
@@ -59,7 +61,7 @@ class LeitorRelacaoProdutosOdsTest {
     private final LeitorRelacaoProdutosOds leitor = new LeitorRelacaoProdutosOds();
 
     @Test
-    void deveLerRelacaoAnaliticaEFiltrarProdutosSemEstoqueOuInativos() throws Exception {
+    void deveLerRelacaoAnaliticaManterEsgotadosEFiltrarInativos() throws Exception {
         RelacaoProdutosOdsDTO relacao = leitor.ler(
                 new ByteArrayInputStream(odsExemplo())
         );
@@ -69,8 +71,8 @@ class LeitorRelacaoProdutosOdsTest {
                 "PAPELARIA > ESCOLAR > COLORIR > GIZ DE CERA",
                 relacao.categorias().get(3).caminho()
         );
-        assertEquals(1, relacao.produtos().size());
-        assertEquals(2, relacao.linhasIgnoradas());
+        assertEquals(2, relacao.produtos().size());
+        assertEquals(1, relacao.linhasIgnoradas());
 
         ProdutoImportacaoDTO produto = relacao.produtos().getFirst();
         assertEquals("2672", produto.codigoSantri());
@@ -85,6 +87,24 @@ class LeitorRelacaoProdutosOdsTest {
         assertEquals("7897464700019", produto.codigoBarras());
         assertTrue(produto.industrializado());
         assertFalse(produto.insumo());
+        assertEquals(new BigDecimal("0.000"), relacao.produtos().get(1).estoque());
+    }
+
+    @Test
+    void deveLerSomenteCodigoEQuantidadeDoInventario() throws Exception {
+        List<EstoqueProdutoImportacaoDTO> registros = new ArrayList<>();
+
+        int quantidade = leitor.lerInventario(
+                new ByteArrayInputStream(odsInventarioExemplo()),
+                registros::add
+        );
+
+        assertEquals(3, quantidade);
+        assertEquals("2672", registros.get(0).codigoSantri());
+        assertEquals(new BigDecimal("491.000"), registros.get(0).quantidade());
+        assertEquals("819971", registros.get(1).codigoSantri());
+        assertEquals(new BigDecimal("0.000"), registros.get(1).quantidade());
+        assertEquals("800068", registros.get(2).codigoSantri());
     }
 
     @Test
@@ -214,6 +234,38 @@ class LeitorRelacaoProdutosOdsTest {
     }
 
     @Test
+    void deveLerPromocoesEIgnorarLinhasDeAgrupamento() throws Exception {
+        RelacaoPromocoesOdsDTO relacao = leitor.lerPromocoes(
+                new ByteArrayInputStream(odsPromocoesExemplo())
+        );
+
+        assertEquals(2, relacao.promocoes().size());
+        assertEquals(1, relacao.linhasIgnoradas());
+        assertEquals("838563", relacao.promocoes().getFirst().codigoSantri());
+        assertEquals(new BigDecimal("89.90"), relacao.promocoes().getFirst().precoPromocao());
+        assertTrue(relacao.promocoes().getFirst().emPromocao());
+        assertFalse(relacao.promocoes().getLast().emPromocao());
+    }
+
+    @Test
+    void deveLerRelacaoRealDePromocoesQuandoCaminhoForInformado() throws Exception {
+        String caminho = System.getProperty("promocoes.ods.file");
+        Assumptions.assumeTrue(caminho != null && Files.exists(Path.of(caminho)));
+
+        RelacaoPromocoesOdsDTO relacao;
+        try (FileInputStream input = new FileInputStream(caminho)) {
+            relacao = leitor.lerPromocoes(input);
+        }
+
+        assertEquals(1_595, relacao.promocoes().size());
+        assertEquals(1_579, relacao.promocoes().stream().filter(p -> p.emPromocao()).count());
+        assertEquals(
+                relacao.promocoes().size(),
+                relacao.promocoes().stream().map(p -> p.codigoSantri()).distinct().count()
+        );
+    }
+
+    @Test
     void deveLerARelacaoRealQuandoCaminhoForInformado() throws Exception {
         String caminho = System.getProperty("ods.file");
         Assumptions.assumeTrue(caminho != null && Files.exists(Path.of(caminho)));
@@ -239,7 +291,7 @@ class LeitorRelacaoProdutosOdsTest {
         );
         assertTrue(relacao.produtos().stream()
                 .allMatch(produto -> produto.ativoSantri()
-                        && produto.estoque().signum() > 0));
+                        && produto.estoque() != null));
         assertTrue(relacao.produtos().stream()
                 .allMatch(produto -> produto.codigoSantri() != null
                         && !produto.codigoSantri().isBlank()
@@ -256,6 +308,25 @@ class LeitorRelacaoProdutosOdsTest {
         assertTrue(relacao.produtos().stream()
                 .noneMatch(produto -> produto.categoriaCodigo().equals("089")
                         || produto.categoriaCodigo().startsWith("089.")));
+    }
+
+    @Test
+    void deveLerInventarioRealQuandoCaminhoForInformado() throws Exception {
+        String caminho = System.getProperty("inventario.ods.file");
+        Assumptions.assumeTrue(caminho != null && Files.exists(Path.of(caminho)));
+        int[] esgotados = {0};
+
+        int registros;
+        try (FileInputStream input = new FileInputStream(caminho)) {
+            registros = leitor.lerInventario(input, item -> {
+                if (item.quantidade().signum() == 0) {
+                    esgotados[0]++;
+                }
+            });
+        }
+
+        assertEquals(86_919, registros);
+        assertEquals(32_869, esgotados[0]);
     }
 
     private byte[] odsExemplo() throws Exception {
@@ -285,6 +356,80 @@ class LeitorRelacaoProdutosOdsTest {
                 </office:document-content>
                 """.formatted(linhas);
 
+        return empacotarOds(xml.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private byte[] odsInventarioExemplo() throws Exception {
+        StringBuilder linhasPrincipais = new StringBuilder();
+        linhasPrincipais.append(linha(List.of("Santri ADM", "", "Emitido em 14/08/2026")));
+        linhasPrincipais.append(linha(List.of(
+                "Produto", "Descrição", "", "Cód. fiscal", "Und", "Marca",
+                "Cód. Original", "Quantidade", "Custo Médio", "Cust.Méd(IVA)", "Total"
+        )));
+        linhasPrincipais.append(linha(List.of("001 - PAPELARIA")));
+        linhasPrincipais.append(linha(List.of(
+                "2.672", "GIZ DE GESSO COMUM", "", "96099000", "UN", "DELTA GIZ",
+                "001000110000001", "491,000", "2,7072", "0,0000", "1.329,24"
+        )));
+        linhasPrincipais.append(linha(List.of("001.003.0006.0002 - GIZ DE CERA")));
+        linhasPrincipais.append(linha(List.of(
+                "819.971", "BIG GIZ CERA", "", "96099000", "UN", "LEONORA",
+                "72304", "0,000", "24,8800", "0,0000", "0,00"
+        )));
+        linhasPrincipais.append(linha(List.of(
+                "TOTAL DO INVENTÁRIO ESCRITO POR EXTENSO EM UMA LINHA QUE ULTRAPASSA SETENTA E CINCO CARACTERES"
+        )));
+
+        StringBuilder linhasContinuacao = new StringBuilder();
+        linhasContinuacao.append(linha(List.of(
+                "800.068", "BIG GIZ CERA TRIANGULAR", "", "96099000", "PCT", "ACRILEX",
+                "", "12,000", "0,0001", "0,0000", "0,00"
+        )));
+
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <office:document-content
+                    xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                    xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+                    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+                  <office:body><office:spreadsheet>
+                    <table:table table:name="Inventário">%s</table:table>
+                    <table:table table:name="Inventário_1">%s</table:table>
+                  </office:spreadsheet></office:body>
+                </office:document-content>
+                """.formatted(linhasPrincipais, linhasContinuacao);
+        return empacotarOds(xml.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private byte[] odsPromocoesExemplo() throws Exception {
+        List<String> cabecalhos = List.of(
+                "Código", "Nome", "Marca", "Código original", "Und", "Custo",
+                "Preço venda", "Preço venda com índice", "Qtd máx", "Qtd máx. por cliente",
+                "Data inicial", "Data final", "% Margem", "% Desconto", "Preço promoção",
+                "Especial", "Desat. prom."
+        );
+        StringBuilder linhas = new StringBuilder();
+        linhas.append(linha(cabecalhos));
+        linhas.append(linha(List.of("001 - FERRAMENTAS")));
+        linhas.append(linha(List.of(
+                "838.563", "PRODUTO A", "MARCA A", "", "UN", "50,00", "100,00", "100,00",
+                "0", "0", "14/08/2026", "30/08/2026", "44,38", "10,10", "89,90", "Não", "Não"
+        )));
+        linhas.append(linha(List.of(
+                "48.340", "PRODUTO B", "MARCA B", "", "UN", "10,00", "20,00", "20,00",
+                "0", "0", "14/08/2026", "30/08/2026", "", "", "15,00", "Não", "Sim"
+        )));
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <office:document-content
+                    xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                    xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+                    xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+                  <office:body><office:spreadsheet><table:table table:name="Promoções de Venda">
+                    %s
+                  </table:table></office:spreadsheet></office:body>
+                </office:document-content>
+                """.formatted(linhas);
         return empacotarOds(xml.getBytes(StandardCharsets.UTF_8));
     }
 

@@ -83,11 +83,13 @@ public class ImportacaoProdutosService {
                 exibir_no_site,
                 destaque_na_home,
                 disponivel_ultima_importacao,
-                ultima_importacao_em
+                ultima_importacao_em,
+                em_promocao,
+                especial
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                FALSE, FALSE, TRUE, ?
+                FALSE, FALSE, TRUE, ?, FALSE, FALSE
             )
             ON DUPLICATE KEY UPDATE
                 nome_exibido_site = CASE
@@ -221,7 +223,10 @@ public class ImportacaoProdutosService {
                         produto.categoriaCodigo(),
                         CODIGO_ATIVO_IMOBILIZADO
                 ))
+                .filter(this::produtoElegivelParaImportacao)
                 .toList();
+
+        int produtosIgnorados = relacao.produtos().size() - produtos.size();
 
         Set<String> categoriasNecessarias = new HashSet<>();
         produtos.forEach(produto -> adicionarCategoriaEAncestrais(
@@ -240,8 +245,18 @@ public class ImportacaoProdutosService {
         return new RelacaoProdutosOdsDTO(
                 categorias,
                 produtos,
-                relacao.linhasIgnoradas()
+                relacao.linhasIgnoradas() + produtosIgnorados
         );
+    }
+
+    private boolean produtoElegivelParaImportacao(ProdutoImportacaoDTO produto) {
+        return !ehInativo(produto.marca())
+                && !ehInativo(produto.fabricante())
+                && produto.precoSemIpi().compareTo(java.math.BigDecimal.ZERO) > 0;
+    }
+
+    private boolean ehInativo(String valor) {
+        return valor != null && "INATIVOS".equalsIgnoreCase(valor.trim());
     }
 
     private void adicionarCategoriaEAncestrais(String codigo, Set<String> destino) {

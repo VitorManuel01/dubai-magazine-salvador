@@ -116,6 +116,23 @@ podem ver itens ocultos, editar o nome público, imagem, visibilidade e destaque
 A categoria interna Uso e Consumo é excluída da interface pública por
 `src/utils/categoriasCatalogo.ts`.
 
+### Cards de produto
+
+No catálogo público, todos os cards têm altura fixa de **290 px**, imagem de **170 px** e nome
+limitado a duas linhas. A interface do card exibe somente o nome e os preços: código Santri,
+estoque, marca, categoria e data final da promoção não são renderizados.
+
+Quando não há promoção, o preço de venda é maior e fica na parte inferior do card. Quando há
+promoção, o preço anterior aparece riscado e o preço promocional, acompanhado do desconto, recebe
+destaque.
+
+No catálogo administrativo, os cards têm altura fixa de **500 px**. Código, estoque, marca e
+categoria são organizados em linhas de rótulo e valor; quando necessário, apenas a área de dados
+rola internamente. A edição preserva a altura do card e disponibiliza os campos em uma área rolável.
+
+Ao final do catálogo administrativo há atalhos para as três importações: relação de produtos,
+promoções de venda e atualização de estoque.
+
 ## Vitrines
 
 ### Home

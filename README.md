@@ -14,6 +14,8 @@ itens disponíveis e direciona o cliente para atendimento ou compra presencial.
 - seleção de produtos e vitrines de categoria na página inicial;
 - três banners da home substituíveis diretamente pelo administrador;
 - importação administrativa da Relação de Produtos Analítica em formato ODS;
+- atualização separada de estoque pelo Inventário ODS, lendo somente código Santri e quantidade;
+- sincronização separada das promoções de venda por ODS, com período e preço promocional;
 - preservação das imagens, nomes públicos e decisões editoriais durante novas importações;
 - administração da visibilidade, do nome público, da imagem e do destaque dos produtos;
 - vitrine interna da loja física com variações, galeria de fotos e seções descritivas;

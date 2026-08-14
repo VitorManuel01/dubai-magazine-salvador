@@ -53,6 +53,8 @@ public class SecurityConfigurations {
                         .requestMatchers("/funcionario", "/funcionario/**").hasRole("ADMIN")
                         .requestMatchers("/actuator", "/actuator/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/admin/importacoes/produtos").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/importacoes/promocoes").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/importacoes/estoque").hasRole("ADMIN")
                         .requestMatchers("/admin/vitrines-home/**").hasRole("ADMIN")
                         .requestMatchers("/admin/banners-home/**").hasRole("ADMIN")
                         .requestMatchers(
@@ -60,6 +62,10 @@ public class SecurityConfigurations {
                                 "/admin/depoimentos-home/**"
                         ).hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/admin/produtos").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/admin/produtos").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/admin/produtos/visibilidade").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/interno/produtos")
+                                .hasAnyRole("ADMIN", "FUNCIONARIO")
                         .requestMatchers(HttpMethod.GET, "/admin/categorias").hasRole("ADMIN")
                         .requestMatchers("/admin/vitrine-loja", "/admin/vitrine-loja/**")
                                 .hasRole("ADMIN")
