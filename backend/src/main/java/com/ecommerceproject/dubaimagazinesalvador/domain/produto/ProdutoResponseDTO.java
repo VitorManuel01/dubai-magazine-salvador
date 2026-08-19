@@ -3,9 +3,11 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ProdutoResponseDTO(
         String codigoSantri,
+        String idPublico,
         String nome,
         String nomeExibidoSite,
         String ncm,
@@ -43,6 +45,9 @@ public record ProdutoResponseDTO(
         String categoriaCaminho,
         String imagemUrl,
         String imagemHoverUrl,
+        List<String> imagens,
+        List<ProdutoImagemDTO> galeria,
+        String descricao,
         boolean exibirNoSite,
         boolean destaqueNaHome,
         boolean disponivelUltimaImportacao,
@@ -60,6 +65,7 @@ public record ProdutoResponseDTO(
     public ProdutoResponseDTO(Produto produto) {
         this(
                 produto.getCodigoSantri(),
+                produto.getIdPublico(),
                 produto.getNome(),
                 produto.getNomeExibidoSite(),
                 produto.getNcm(),
@@ -95,8 +101,13 @@ public record ProdutoResponseDTO(
                 produto.getCategoria().getCodigo(),
                 produto.getCategoria().getNome(),
                 produto.getCategoria().getCaminho(),
-                produto.getImagemUrl(),
-                produto.getImagemHoverUrl(),
+                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemUrl()),
+                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemHoverUrl()),
+                produto.getUrlsImagens().stream()
+                        .map(ImagemProdutoCatalogo::criarUrlPublica)
+                        .toList(),
+                produto.getImagens().stream().map(ProdutoImagemDTO::new).toList(),
+                produto.getDescricaoSite(),
                 produto.isExibirNoSite(),
                 produto.isDestaqueNaHome(),
                 produto.isDisponivelUltimaImportacao(),

@@ -37,6 +37,8 @@ interface OpcaoFormulario {
   rotuloOpcao: string;
   ordem: number;
   imagens: ImagemFormulario[];
+  imagensAlteradas: boolean;
+  imagensOriginais: string[] | null;
   secoes: SecaoFormulario[];
 }
 
@@ -68,6 +70,8 @@ const novaOpcao = (ordem = 0): OpcaoFormulario => ({
   rotuloOpcao: '',
   ordem,
   imagens: [],
+  imagensAlteradas: false,
+  imagensOriginais: null,
   secoes: [novaSecao()],
 });
 
@@ -157,6 +161,8 @@ function VitrineLojaAdmin() {
           rotuloOpcao: opcao.rotuloOpcao.trim(),
           ordem: indice,
           imagens,
+          atualizarImagens: opcao.imagensAlteradas,
+          imagensOriginais: opcao.imagensOriginais,
           secoes: opcao.secoes.map((secao, ordem) => ({
             titulo: secao.titulo.trim(),
             conteudo: secao.conteudo.trim(),
@@ -269,8 +275,12 @@ function VitrineLojaAdmin() {
     setFormulario((atual) => ({
       ...atual,
       opcoes: atual.opcoes.map((opcao, posicao) => (
-        posicao === indiceOpcao && opcao.imagens.length < 20
-          ? { ...opcao, imagens: [...opcao.imagens, novaImagem()] }
+        posicao === indiceOpcao && opcao.imagens.length < 8
+          ? {
+              ...opcao,
+              imagens: [...opcao.imagens, novaImagem()],
+              imagensAlteradas: true,
+            }
           : opcao
       )),
     }));
@@ -311,6 +321,7 @@ function VitrineLojaAdmin() {
         if (posicaoOpcao !== indiceOpcao) return opcao;
         return {
           ...opcao,
+          imagensAlteradas: true,
           imagens: opcao.imagens.map((imagem, posicaoImagem) => {
             if (posicaoImagem !== indiceImagem) return imagem;
             liberarPreview(imagem.previewUrl);
@@ -331,6 +342,7 @@ function VitrineLojaAdmin() {
           ? {
               ...opcao,
               imagens: opcao.imagens.filter((_, posicao) => posicao !== indiceImagem),
+              imagensAlteradas: true,
             }
           : opcao
       )),
@@ -385,6 +397,8 @@ function VitrineLojaAdmin() {
         rotuloOpcao: opcao.rotuloOpcao,
         ordem: opcao.ordem,
         imagens: opcao.imagens.map((imagem) => novaImagem(imagem)),
+        imagensAlteradas: false,
+        imagensOriginais: [...opcao.imagens],
         secoes: opcao.secoes.map((secao) => ({
           titulo: secao.titulo,
           conteudo: secao.conteudo,
@@ -555,15 +569,15 @@ function VitrineLojaAdmin() {
                       <div>
                         <span>Fotos da vitrine</span>
                         <small>
-                          Se nenhuma foto for adicionada, será usada a imagem principal
-                          do produto.
+                          Galeria compartilhada com o catálogo. Máximo de 8 fotos;
+                          as duas primeiras aparecem no card público.
                         </small>
                       </div>
                       <button
                         type="button"
                         className="loja-admin-secondary-button"
                         onClick={() => adicionarImagem(indiceOpcao)}
-                        disabled={opcao.imagens.length >= 20 || salvar.isPending}
+                        disabled={opcao.imagens.length >= 8 || salvar.isPending}
                       >
                         <i className="bi bi-image" />
                         Adicionar foto

@@ -44,6 +44,7 @@ const BANNERS_PADRAO: PromoSlide[] = [
 const CATEGORIAS_DESTAQUE = [
   { codigo: '034', icone: 'bi-tools' },
   { codigo: '036', icone: 'bi-plug' },
+  { codigo: '035', icone: 'bi-person-standing-dress' },
   { codigo: '042', icone: 'bi-lamp' },
   { codigo: '115', icone: 'bi-pc-display' },
   { codigo: '040', icone: 'bi-house-heart' },
@@ -293,7 +294,7 @@ const Home: React.FC = () => {
               <span className="home-category-shortcut__name">{categoria.nome}</span>
             </Link>
           ))}
-          {carregandoCategorias && Array.from({ length: 7 }, (_, indice) => (
+          {carregandoCategorias && Array.from({ length: 8 }, (_, indice) => (
             <span className="home-category-shortcut home-category-shortcut--loading" key={indice}>
               <span className="home-category-shortcut__icon" />
               <span className="home-category-shortcut__name">Carregando...</span>

@@ -1,4 +1,5 @@
 import { ChangeEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './produtos.css';
 import { useAuth } from '../../context/AuthContext';
@@ -197,24 +198,32 @@ export function Produtos(props: ProdutoProps) {
             <span>Selecionar</span>
           </label>
         )}
-        <img
-          src={imagemPreview ?? resolverImagemProduto(props.imagemUrl)}
-          className="card-img-top img-fluid produto-img produto-img--principal"
-          alt={props.nomeExibidoSite}
-          onError={(event) => {
-            event.currentTarget.src = IMAGEM_PRODUTO_PLACEHOLDER;
-          }}
-        />
-        {(imagemHoverPreview || props.imagemHoverUrl) && (
+        <Link
+          className="produto-detail-link"
+          to={`/produtos/${encodeURIComponent(props.idPublico)}`}
+          aria-label={`Ver detalhes de ${props.nomeExibidoSite}`}
+        >
           <img
-            src={imagemHoverPreview ?? resolverImagemProduto(props.imagemHoverUrl)}
-            className="card-img-top img-fluid produto-img produto-img--hover"
-            alt={`${props.nomeExibidoSite} — segunda imagem`}
+            src={imagemPreview ?? resolverImagemProduto(props.imagens?.[0] ?? props.imagemUrl)}
+            className="card-img-top img-fluid produto-img produto-img--principal"
+            alt={props.nomeExibidoSite}
             onError={(event) => {
-              event.currentTarget.style.display = 'none';
+              event.currentTarget.src = IMAGEM_PRODUTO_PLACEHOLDER;
             }}
           />
-        )}
+          {(imagemHoverPreview || props.imagens?.[1] || props.imagemHoverUrl) && (
+            <img
+              src={imagemHoverPreview ?? resolverImagemProduto(
+                props.imagens?.[1] ?? props.imagemHoverUrl
+              )}
+              className="card-img-top img-fluid produto-img produto-img--hover"
+              alt={`${props.nomeExibidoSite} — segunda imagem`}
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
+        </Link>
         {produtoAdministrativo && (
           <span className={`produto-status ${produtoAdministrativo.exibirNoSite ? 'produto-status--visivel' : 'produto-status--oculto'}`}>
             {produtoAdministrativo.exibirNoSite ? 'Visível' : 'Oculto'}
@@ -227,7 +236,9 @@ export function Produtos(props: ProdutoProps) {
 
       <div className="card-body">
         <h5 className="card-title" title={props.nomeExibidoSite}>
-          {props.nomeExibidoSite}
+          <Link to={`/produtos/${encodeURIComponent(props.idPublico)}`}>
+            {props.nomeExibidoSite}
+          </Link>
         </h5>
         <ul className={`list-unstyled produto-informacoes ${produtoAdministrativo ? 'produto-informacoes--administrativo' : ''} ${!produtoInterno && !emPromocao ? 'produto-informacoes--sem-promocao' : ''}`}>
           {produtoInterno && (
@@ -387,6 +398,13 @@ export function Produtos(props: ProdutoProps) {
 
         {produtoAdministrativo && !isEditing && (
           <div className="produto-admin-actions">
+            <Link
+              className="btn btn-outline-primary"
+              to={`/produtos/${encodeURIComponent(props.idPublico)}`}
+            >
+              <i className="bi bi-images me-1" />
+              Fotos e descrição
+            </Link>
             <button
               className="btn btn-primary"
               type="button"

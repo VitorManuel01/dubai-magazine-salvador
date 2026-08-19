@@ -1,5 +1,7 @@
 package com.ecommerceproject.dubaimagazinesalvador.controller;
 
+import java.math.BigDecimal;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -23,10 +25,14 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogo
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoCatalogoInternoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoDetalhePublicoDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.AtualizacaoDescricaoProdutoRequestDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ReordenacaoImagensProdutoRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdutoService;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.DetalheProdutoService;
 
 @RestController
 public class ProdController {
@@ -35,17 +41,20 @@ public class ProdController {
     private final CategoriaRepository categoriaRepository;
     private final ApresentacaoProdutoService apresentacaoProdutoService;
     private final ExclusaoProdutoService exclusaoProdutoService;
+    private final DetalheProdutoService detalheProdutoService;
 
     public ProdController(
             ProdutoRepository produtoRepository,
             CategoriaRepository categoriaRepository,
             ApresentacaoProdutoService apresentacaoProdutoService,
-            ExclusaoProdutoService exclusaoProdutoService
+            ExclusaoProdutoService exclusaoProdutoService,
+            DetalheProdutoService detalheProdutoService
     ) {
         this.produtoRepository = produtoRepository;
         this.categoriaRepository = categoriaRepository;
         this.apresentacaoProdutoService = apresentacaoProdutoService;
         this.exclusaoProdutoService = exclusaoProdutoService;
+        this.detalheProdutoService = detalheProdutoService;
     }
 
     @PostMapping("/produto")
@@ -67,6 +76,8 @@ public class ProdController {
     public Page<ProdutoCatalogoPublicoDTO> getAll(
             @RequestParam(required = false) String categoriaCodigo,
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) BigDecimal precoMinimo,
+            @RequestParam(required = false) BigDecimal precoMaximo,
             @RequestParam(defaultValue = "false") boolean somenteDestaques,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "24") int tamanho
@@ -74,6 +85,8 @@ public class ProdController {
         return buscarCatalogo(
                 categoriaCodigo,
                 busca,
+                precoMinimo,
+                precoMaximo,
                 somenteDestaques,
                 pagina,
                 tamanho,
@@ -87,6 +100,8 @@ public class ProdController {
     public Page<ProdutoCatalogoInternoDTO> getAllInterno(
             @RequestParam(required = false) String categoriaCodigo,
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) BigDecimal precoMinimo,
+            @RequestParam(required = false) BigDecimal precoMaximo,
             @RequestParam(defaultValue = "false") boolean somenteDestaques,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "24") int tamanho
@@ -94,6 +109,8 @@ public class ProdController {
         return buscarCatalogo(
                 categoriaCodigo,
                 busca,
+                precoMinimo,
+                precoMaximo,
                 somenteDestaques,
                 pagina,
                 tamanho,
@@ -102,11 +119,65 @@ public class ProdController {
         ).map(ProdutoCatalogoInternoDTO::new);
     }
 
+    @GetMapping("/produto/{idPublico}")
+    public ProdutoDetalhePublicoDTO buscarDetalhePublico(@PathVariable String idPublico) {
+        return detalheProdutoService.buscarPublico(idPublico);
+    }
+
+    @GetMapping("/admin/produtos/{idPublico}/detalhe")
+    public ProdutoResponseDTO buscarDetalheAdministracao(@PathVariable String idPublico) {
+        return detalheProdutoService.buscarAdministracao(idPublico);
+    }
+
+    @PutMapping("/admin/produtos/{codigoSantri}/descricao")
+    public ProdutoResponseDTO atualizarDescricao(
+            @PathVariable String codigoSantri,
+            @RequestBody AtualizacaoDescricaoProdutoRequestDTO dados
+    ) {
+        return detalheProdutoService.atualizarDescricao(
+                codigoSantri,
+                dados == null ? null : dados.descricao()
+        );
+    }
+
+    @PostMapping(
+            value = "/admin/produtos/{codigoSantri}/imagens",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ProdutoResponseDTO> adicionarImagem(
+            @PathVariable String codigoSantri,
+            @RequestParam("imagem") MultipartFile imagem
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(detalheProdutoService.adicionarImagem(codigoSantri, imagem));
+    }
+
+    @DeleteMapping("/admin/produtos/{codigoSantri}/imagens/{imagemId}")
+    public ProdutoResponseDTO removerImagem(
+            @PathVariable String codigoSantri,
+            @PathVariable Long imagemId
+    ) {
+        return detalheProdutoService.removerImagem(codigoSantri, imagemId);
+    }
+
+    @PutMapping("/admin/produtos/{codigoSantri}/imagens/ordem")
+    public ProdutoResponseDTO reordenarImagens(
+            @PathVariable String codigoSantri,
+            @RequestBody ReordenacaoImagensProdutoRequestDTO dados
+    ) {
+        return detalheProdutoService.reordenarImagens(
+                codigoSantri,
+                dados == null ? null : dados.imagens()
+        );
+    }
+
     @GetMapping("/admin/produtos")
     @Transactional(readOnly = true)
     public Page<ProdutoResponseDTO> getAllAdministracao(
             @RequestParam(required = false) String categoriaCodigo,
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) BigDecimal precoMinimo,
+            @RequestParam(required = false) BigDecimal precoMaximo,
             @RequestParam(defaultValue = "false") boolean somenteDestaques,
             @RequestParam(defaultValue = "false") boolean apenasVisiveis,
             @RequestParam(defaultValue = "0") int pagina,
@@ -115,6 +186,8 @@ public class ProdController {
         return buscarCatalogo(
                 categoriaCodigo,
                 busca,
+                precoMinimo,
+                precoMaximo,
                 somenteDestaques,
                 pagina,
                 tamanho,
@@ -126,6 +199,8 @@ public class ProdController {
     private Page<Produto> buscarCatalogo(
             String categoriaCodigo,
             String busca,
+            BigDecimal precoMinimo,
+            BigDecimal precoMaximo,
             boolean somenteDestaques,
             int pagina,
             int tamanho,
@@ -138,6 +213,21 @@ public class ProdController {
                     "A página deve ser positiva e o tamanho deve estar entre 1 e 60."
             );
         }
+        if ((precoMinimo != null && precoMinimo.signum() < 0)
+                || (precoMaximo != null && precoMaximo.signum() < 0)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Os preços mínimo e máximo não podem ser negativos."
+            );
+        }
+        if (precoMinimo != null
+                && precoMaximo != null
+                && precoMinimo.compareTo(precoMaximo) > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "O preço mínimo não pode ser maior que o preço máximo."
+            );
+        }
         String categoriaNormalizada = categoriaCodigo == null || categoriaCodigo.isBlank()
                 ? null
                 : categoriaCodigo.trim();
@@ -146,9 +236,28 @@ public class ProdController {
                 : busca.trim();
         PageRequest paginacao = PageRequest.of(pagina, tamanho);
         if (pesquisarCodigoSantri && !incluirOcultos) {
+            if (precoMinimo == null && precoMaximo == null) {
+                return produtoRepository.findCatalogoInternoPorCategoria(
+                        categoriaNormalizada,
+                        buscaNormalizada,
+                        somenteDestaques,
+                        paginacao
+                );
+            }
             return produtoRepository.findCatalogoInternoPorCategoria(
                     categoriaNormalizada,
                     buscaNormalizada,
+                    somenteDestaques,
+                    precoMinimo,
+                    precoMaximo,
+                    paginacao
+            );
+        }
+        if (precoMinimo == null && precoMaximo == null) {
+            return produtoRepository.findCatalogoPorCategoria(
+                    categoriaNormalizada,
+                    buscaNormalizada,
+                    incluirOcultos,
                     somenteDestaques,
                     paginacao
             );
@@ -158,6 +267,8 @@ public class ProdController {
                 buscaNormalizada,
                 incluirOcultos,
                 somenteDestaques,
+                precoMinimo,
+                precoMaximo,
                 paginacao
         );
     }

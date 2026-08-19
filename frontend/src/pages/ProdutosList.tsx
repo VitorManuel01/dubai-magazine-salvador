@@ -7,6 +7,10 @@ import { useCategoriasPrincipais } from '../hooks/useCategoriasPrincipais';
 import { useSubcategorias } from '../hooks/useSubcategorias';
 import { useAlterarVisibilidadeProdutos } from '../hooks/useAlterarVisibilidadeProdutos';
 import { useExcluirProdutos } from '../hooks/useExcluirProdutos';
+import {
+  LIMITE_PRODUTOS_EM_LOTE,
+  useSelecionarProdutosFiltrados,
+} from '../hooks/useSelecionarProdutosFiltrados';
 import '../styles/ProdutoList.css';
 
 function ProdutoList() {
@@ -23,11 +27,19 @@ function ProdutoList() {
     min: number | null;
     max: number | null;
   }>({ min: null, max: null });
+  const [priceError, setPriceError] = useState('');
   const [sortBy, setSortBy] = useState('featured');
   const [apenasVisiveis, setApenasVisiveis] = useState(false);
   const [produtosMarcados, setProdutosMarcados] = useState<Set<string>>(new Set());
+  const [resumoSelecaoGlobal, setResumoSelecaoGlobal] = useState<{
+    selecionados: number;
+    totalEncontrado: number;
+    limitado: boolean;
+  } | null>(null);
+  const [erroSelecaoGlobal, setErroSelecaoGlobal] = useState('');
   const alterarVisibilidade = useAlterarVisibilidadeProdutos();
   const excluirProdutos = useExcluirProdutos();
+  const selecionarProdutosFiltrados = useSelecionarProdutosFiltrados();
 
   const {
     data = [],
@@ -42,6 +54,8 @@ function ProdutoList() {
     false,
     true,
     apenasVisiveis,
+    appliedPriceRange.min,
+    appliedPriceRange.max,
   );
   const paginasRetornadas = paginacao?.totalPages ?? 0;
   const totalPaginas = Math.max(paginasRetornadas, 1);
@@ -81,9 +95,12 @@ function ProdutoList() {
     setPagina(0);
     setPriceDraft({ min: '', max: '' });
     setAppliedPriceRange({ min: null, max: null });
+    setPriceError('');
     setSortBy('featured');
     setApenasVisiveis(false);
     setProdutosMarcados(new Set());
+    setResumoSelecaoGlobal(null);
+    setErroSelecaoGlobal('');
   }, [busca, categoriaCodigo, subcategoriaCodigo]);
 
   useEffect(() => {
@@ -97,11 +114,7 @@ function ProdutoList() {
   }, [pagina, paginasRetornadas]);
 
   const produtosSelecionaveisNaPagina = useMemo(
-    () => data.filter(
-      (produto) => 'codigoSantri' in produto
-        && 'disponivelUltimaImportacao' in produto
-        && produto.disponivelUltimaImportacao,
-    ),
+    () => data.filter((produto) => 'codigoSantri' in produto),
     [data],
   );
   const paginaTodaMarcada = produtosSelecionaveisNaPagina.length > 0
@@ -110,12 +123,19 @@ function ProdutoList() {
     );
 
   const alterarSelecaoProduto = (codigoSantri: string, selecionado: boolean) => {
+    if (selecionado
+        && !produtosMarcados.has(codigoSantri)
+        && produtosMarcados.size >= LIMITE_PRODUTOS_EM_LOTE) {
+      return;
+    }
     setProdutosMarcados((atuais) => {
       const novos = new Set(atuais);
       if (selecionado) novos.add(codigoSantri);
       else novos.delete(codigoSantri);
       return novos;
     });
+    setResumoSelecaoGlobal(null);
+    setErroSelecaoGlobal('');
     alterarVisibilidade.reset();
   };
 
@@ -124,19 +144,60 @@ function ProdutoList() {
       const novos = new Set(atuais);
       produtosSelecionaveisNaPagina.forEach((produto) => {
         if (!('codigoSantri' in produto)) return;
-        if (selecionar) novos.add(produto.codigoSantri);
-        else novos.delete(produto.codigoSantri);
+        if (selecionar) {
+          if (novos.has(produto.codigoSantri)
+              || novos.size < LIMITE_PRODUTOS_EM_LOTE) {
+            novos.add(produto.codigoSantri);
+          }
+        } else {
+          novos.delete(produto.codigoSantri);
+        }
       });
       return novos;
     });
+    setResumoSelecaoGlobal(null);
+    setErroSelecaoGlobal('');
     alterarVisibilidade.reset();
+  };
+
+  const selecionarTodasAsPaginas = () => {
+    setErroSelecaoGlobal('');
+    selecionarProdutosFiltrados.mutate({
+      categoriaCodigo: categoriaFiltro,
+      busca,
+      precoMinimo: appliedPriceRange.min,
+      precoMaximo: appliedPriceRange.max,
+      apenasVisiveis,
+      totalEncontrado: paginacao?.totalElements ?? 0,
+    }, {
+      onSuccess: (resultado) => {
+        setProdutosMarcados(new Set(resultado.codigosSantri));
+        setResumoSelecaoGlobal({
+          selecionados: resultado.codigosSantri.length,
+          totalEncontrado: resultado.totalEncontrado,
+          limitado: resultado.limitado,
+        });
+      },
+      onError: () => {
+        setErroSelecaoGlobal('Não foi possível selecionar os produtos de todas as páginas.');
+      },
+    });
+  };
+
+  const limparSelecao = () => {
+    setProdutosMarcados(new Set());
+    setResumoSelecaoGlobal(null);
+    setErroSelecaoGlobal('');
   };
 
   const alterarVisibilidadeDosMarcados = (exibirNoSite: boolean) => {
     const codigos = Array.from(produtosMarcados);
     if (codigos.length === 0) return;
     alterarVisibilidade.mutate({ codigosSantri: codigos, exibirNoSite }, {
-      onSuccess: () => setProdutosMarcados(new Set()),
+      onSuccess: () => {
+        setProdutosMarcados(new Set());
+        setResumoSelecaoGlobal(null);
+      },
     });
   };
 
@@ -151,7 +212,10 @@ function ProdutoList() {
     if (!confirmou) return;
 
     excluirProdutos.mutate(codigos, {
-      onSuccess: () => setProdutosMarcados(new Set()),
+      onSuccess: () => {
+        setProdutosMarcados(new Set());
+        setResumoSelecaoGlobal(null);
+      },
     });
   };
 
@@ -161,14 +225,7 @@ function ProdutoList() {
   };
 
   const filteredProducts = useMemo(() => {
-    const result = data.filter((produto) => {
-      const price = getPrice(produto.precoComIpi);
-      const matchesMin = appliedPriceRange.min === null || price >= appliedPriceRange.min;
-      const matchesMax = appliedPriceRange.max === null || price <= appliedPriceRange.max;
-      return matchesMin && matchesMax;
-    });
-
-    return [...result].sort((left, right) => {
+    return [...data].sort((left, right) => {
       if (administrador && 'exibirNoSite' in left && 'exibirNoSite' in right) {
         const leftVisivel = left.exibirNoSite && left.disponivelUltimaImportacao;
         const rightVisivel = right.exibirNoSite && right.disponivelUltimaImportacao;
@@ -194,7 +251,7 @@ function ProdutoList() {
           return 0;
       }
     });
-  }, [administrador, appliedPriceRange.max, appliedPriceRange.min, data, sortBy]);
+  }, [administrador, data, sortBy]);
 
   const selecionarSubcategoria = (codigo?: string) => {
     const novosParametros = new URLSearchParams(searchParams);
@@ -209,19 +266,37 @@ function ProdutoList() {
   const handleApplyPrice = () => {
     const min = priceDraft.min === '' ? null : Number(priceDraft.min);
     const max = priceDraft.max === '' ? null : Number(priceDraft.max);
+    const minValido = min === null || (Number.isFinite(min) && min >= 0);
+    const maxValido = max === null || (Number.isFinite(max) && max >= 0);
 
-    setAppliedPriceRange({
-      min: Number.isFinite(min ?? NaN) ? min : null,
-      max: Number.isFinite(max ?? NaN) ? max : null,
-    });
+    if (!minValido || !maxValido) {
+      setPriceError('Informe preços válidos e maiores ou iguais a zero.');
+      return;
+    }
+    if (min !== null && max !== null && min > max) {
+      setPriceError('O preço mínimo não pode ser maior que o máximo.');
+      return;
+    }
+
+    setPriceError('');
+    setPagina(0);
+    setAppliedPriceRange({ min, max });
+    setProdutosMarcados(new Set());
+    setResumoSelecaoGlobal(null);
+    setErroSelecaoGlobal('');
   };
 
   const handleClearFilters = () => {
     selecionarSubcategoria();
     setPriceDraft({ min: '', max: '' });
     setAppliedPriceRange({ min: null, max: null });
+    setPriceError('');
     setSortBy('featured');
     setApenasVisiveis(false);
+    setPagina(0);
+    setProdutosMarcados(new Set());
+    setResumoSelecaoGlobal(null);
+    setErroSelecaoGlobal('');
   };
 
   const irParaPagina = () => {
@@ -359,6 +434,9 @@ function ProdutoList() {
                     onChange={(event) => {
                       setApenasVisiveis(event.target.checked);
                       setPagina(0);
+                      setProdutosMarcados(new Set());
+                      setResumoSelecaoGlobal(null);
+                      setErroSelecaoGlobal('');
                     }}
                   />
                   <span>Apenas visíveis</span>
@@ -367,21 +445,33 @@ function ProdutoList() {
           )}
 
           <div className="filter-group">
-            <span className="filter-group__title">Preço nesta página</span>
+            <span className="filter-group__title">Preço no catálogo</span>
             <div className="price-grid">
               <input
                 type="number"
+                min="0"
+                step="0.01"
                 placeholder="De"
                 value={priceDraft.min}
-                onChange={(event) => setPriceDraft((prev) => ({ ...prev, min: event.target.value }))}
+                onChange={(event) => {
+                  setPriceDraft((prev) => ({ ...prev, min: event.target.value }));
+                  setPriceError('');
+                }}
               />
               <input
                 type="number"
+                min="0"
+                step="0.01"
                 placeholder="Até"
                 value={priceDraft.max}
-                onChange={(event) => setPriceDraft((prev) => ({ ...prev, max: event.target.value }))}
+                onChange={(event) => {
+                  setPriceDraft((prev) => ({ ...prev, max: event.target.value }));
+                  setPriceError('');
+                }}
               />
             </div>
+
+            {priceError && <p className="filter-error" role="alert">{priceError}</p>}
 
             <div className="filter-actions">
               <button className="filter-button filter-button--primary" type="button" onClick={handleApplyPrice}>
@@ -404,9 +494,30 @@ function ProdutoList() {
                   onChange={(event) => alterarSelecaoPagina(event.target.checked)}
                   disabled={produtosSelecionaveisNaPagina.length === 0
                     || alterarVisibilidade.isPending
-                    || excluirProdutos.isPending}
+                    || excluirProdutos.isPending
+                    || selecionarProdutosFiltrados.isPending}
                 />
                 <span>Selecionar página</span>
+              </label>
+              <label className="filter-checkbox">
+                <input
+                  type="checkbox"
+                  checked={resumoSelecaoGlobal !== null
+                    && resumoSelecaoGlobal.selecionados === produtosMarcados.size}
+                  onChange={(event) => {
+                    if (event.target.checked) selecionarTodasAsPaginas();
+                    else limparSelecao();
+                  }}
+                  disabled={(paginacao?.totalElements ?? 0) === 0
+                    || selecionarProdutosFiltrados.isPending
+                    || alterarVisibilidade.isPending
+                    || excluirProdutos.isPending}
+                />
+                <span>
+                  {selecionarProdutosFiltrados.isPending
+                    ? 'Selecionando...'
+                    : `Selecionar todas as páginas (máx. ${LIMITE_PRODUTOS_EM_LOTE})`}
+                </span>
               </label>
               <strong>{produtosMarcados.size} selecionado(s)</strong>
               <button
@@ -415,7 +526,8 @@ function ProdutoList() {
                 onClick={() => alterarVisibilidadeDosMarcados(true)}
                 disabled={produtosMarcados.size === 0
                   || alterarVisibilidade.isPending
-                  || excluirProdutos.isPending}
+                  || excluirProdutos.isPending
+                  || selecionarProdutosFiltrados.isPending}
               >
                 {alterarVisibilidade.isPending && alterarVisibilidade.variables?.exibirNoSite
                   ? 'Exibindo...'
@@ -427,7 +539,8 @@ function ProdutoList() {
                 onClick={() => alterarVisibilidadeDosMarcados(false)}
                 disabled={produtosMarcados.size === 0
                   || alterarVisibilidade.isPending
-                  || excluirProdutos.isPending}
+                  || excluirProdutos.isPending
+                  || selecionarProdutosFiltrados.isPending}
               >
                 {alterarVisibilidade.isPending && alterarVisibilidade.variables?.exibirNoSite === false
                   ? 'Ocultando...'
@@ -439,7 +552,8 @@ function ProdutoList() {
                 onClick={excluirMarcados}
                 disabled={produtosMarcados.size === 0
                   || alterarVisibilidade.isPending
-                  || excluirProdutos.isPending}
+                  || excluirProdutos.isPending
+                  || selecionarProdutosFiltrados.isPending}
               >
                 {excluirProdutos.isPending ? 'Excluindo...' : 'Excluir todos selecionados'}
               </button>
@@ -447,11 +561,32 @@ function ProdutoList() {
                 <button
                   className="btn btn-outline-secondary"
                   type="button"
-                  onClick={() => setProdutosMarcados(new Set())}
-                  disabled={alterarVisibilidade.isPending || excluirProdutos.isPending}
+                  onClick={limparSelecao}
+                  disabled={alterarVisibilidade.isPending
+                    || excluirProdutos.isPending
+                    || selecionarProdutosFiltrados.isPending}
                 >
                   Limpar seleção
                 </button>
+              )}
+              {resumoSelecaoGlobal && (
+                <span className={resumoSelecaoGlobal.limitado
+                  ? 'catalog-bulk-actions__notice'
+                  : 'catalog-bulk-actions__success'}>
+                  {resumoSelecaoGlobal.selecionados.toLocaleString('pt-BR')} produto(s) selecionado(s)
+                  {' '}entre {resumoSelecaoGlobal.totalEncontrado.toLocaleString('pt-BR')} encontrado(s)
+                  {resumoSelecaoGlobal.limitado
+                    ? ` — limite de ${LIMITE_PRODUTOS_EM_LOTE} por operação.`
+                    : ' em todas as páginas.'}
+                </span>
+              )}
+              {produtosMarcados.size >= LIMITE_PRODUTOS_EM_LOTE && !resumoSelecaoGlobal && (
+                <span className="catalog-bulk-actions__notice">
+                  Limite de {LIMITE_PRODUTOS_EM_LOTE} produtos por operação atingido.
+                </span>
+              )}
+              {erroSelecaoGlobal && (
+                <span className="catalog-bulk-actions__error">{erroSelecaoGlobal}</span>
               )}
               {alterarVisibilidade.isSuccess && (
                 <span className="catalog-bulk-actions__success">

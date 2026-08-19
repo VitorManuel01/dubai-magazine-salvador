@@ -3,6 +3,7 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja;
 import java.math.BigDecimal;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ImagemProdutoCatalogo;
 
 public record ProdutoVitrineLojaProdutoDTO(
         String codigoSantri,
@@ -24,7 +25,7 @@ public record ProdutoVitrineLojaProdutoDTO(
                 produto.getUnidadeVenda(),
                 produto.getEstoque(),
                 produto.getPrecoVendaEfetivo(),
-                produto.getImagemUrl()
+                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemUrl())
         );
     }
 }

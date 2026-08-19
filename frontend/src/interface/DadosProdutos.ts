@@ -1,4 +1,5 @@
 export interface ProdutoCatalogoPublico {
+    idPublico: string;
     nomeExibidoSite: string;
     marca: string | null;
     precoComIpi: number;
@@ -12,6 +13,7 @@ export interface ProdutoCatalogoPublico {
     categoriaCaminho: string;
     imagemUrl: string | null;
     imagemHoverUrl: string | null;
+    imagens: string[];
 }
 
 export interface ProdutoCatalogoInterno extends ProdutoCatalogoPublico {
@@ -55,6 +57,28 @@ export interface DadosProdutos extends ProdutoCatalogoInterno {
     dataInicialProm: string | null;
     porcMargem: number | null;
     especial: boolean;
+    descricao: string | null;
+    galeria: ImagemProduto[];
+}
+
+export interface ImagemProduto {
+    id: number;
+    url: string;
+    ordem: number;
+}
+
+export interface ProdutoDetalhePublico {
+    idPublico: string;
+    nomeExibidoSite: string;
+    precoComIpi: number;
+    emPromocao: boolean;
+    precoPromocao: number | null;
+    porcDesconto: number | null;
+    esgotado: boolean;
+    categoriaNome: string;
+    categoriaCaminho: string;
+    imagens: string[];
+    descricao: string | null;
 }
 
 export type ProdutoCatalogo = ProdutoCatalogoPublico | ProdutoCatalogoInterno | DadosProdutos;

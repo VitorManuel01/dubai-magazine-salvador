@@ -36,8 +36,7 @@ public class ExclusaoProdutoService {
                         "Produto não encontrado: " + codigoSantri
                 ));
 
-        String imagemPrincipal = produto.getImagemUrl();
-        String imagemHover = produto.getImagemHoverUrl();
+        List<String> imagens = imagensDoProduto(produto);
         produtoRepository.delete(produto);
         produtoRepository.flush();
 
@@ -46,12 +45,12 @@ public class ExclusaoProdutoService {
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            removerImagens(imagemPrincipal, imagemHover);
+                            removerImagens(imagens);
                         }
                     }
             );
         } else {
-            removerImagens(imagemPrincipal, imagemHover);
+            removerImagens(imagens);
         }
     }
 
@@ -73,11 +72,8 @@ public class ExclusaoProdutoService {
             );
         }
 
-        List<ImagensProduto> imagens = produtos.stream()
-                .map(produto -> new ImagensProduto(
-                        produto.getImagemUrl(),
-                        produto.getImagemHoverUrl()
-                ))
+        List<List<String>> imagens = produtos.stream()
+                .map(this::imagensDoProduto)
                 .toList();
         produtoRepository.deleteAll(produtos);
         produtoRepository.flush();
@@ -85,16 +81,26 @@ public class ExclusaoProdutoService {
         return produtos.size();
     }
 
-    private void removerImagens(String imagemPrincipal, String imagemHover) {
-        armazenamentoImagem.removerSeGerenciada(imagemPrincipal);
-        armazenamentoImagem.removerSeGerenciada(imagemHover);
+    private List<String> imagensDoProduto(Produto produto) {
+        List<String> imagens = produto.getUrlsImagens();
+        if (!imagens.isEmpty()) {
+            return imagens;
+        }
+        return java.util.stream.Stream.of(
+                        produto.getImagemUrl(),
+                        produto.getImagemHoverUrl()
+                )
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
-    private void agendarRemocaoImagens(List<ImagensProduto> imagens) {
-        Runnable remover = () -> imagens.forEach(imagem -> removerImagens(
-                imagem.principal(),
-                imagem.hover()
-        ));
+    private void removerImagens(List<String> imagens) {
+        imagens.forEach(armazenamentoImagem::removerSeGerenciada);
+    }
+
+    private void agendarRemocaoImagens(List<List<String>> imagens) {
+        Runnable remover = () -> imagens.forEach(this::removerImagens);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
@@ -130,8 +136,5 @@ public class ExclusaoProdutoService {
             );
         }
         return codigos;
-    }
-
-    private record ImagensProduto(String principal, String hover) {
     }
 }

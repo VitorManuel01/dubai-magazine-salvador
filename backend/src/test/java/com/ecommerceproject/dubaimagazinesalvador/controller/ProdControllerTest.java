@@ -46,6 +46,7 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdutoService;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.DetalheProdutoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
@@ -83,6 +84,9 @@ class ProdControllerTest {
 
     @MockitoBean
     private ExclusaoProdutoService exclusaoProdutoService;
+
+    @MockitoBean
+    private DetalheProdutoService detalheProdutoService;
 
     private ObjectMapper objectMapper;
     private Categoria categoria;
@@ -144,6 +148,51 @@ class ProdControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].nome").value("Produto 1"))
                 .andExpect(jsonPath("$.content[1].nome").value("Produto 2"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve filtrar por preço antes de calcular a paginação")
+    void getAllPorFaixaDePreco() throws Exception {
+        Produto produto = criarProduto("2.672", "Produto barato");
+        Pageable primeiraPagina = org.springframework.data.domain.PageRequest.of(0, 24);
+
+        when(produtoRepository.findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(true),
+                eq(false),
+                isNull(),
+                eq(new BigDecimal("2")),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(produto), primeiraPagina, 25));
+
+        mockMvc.perform(get("/admin/produtos")
+                        .param("precoMaximo", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nome").value("Produto barato"))
+                .andExpect(jsonPath("$.totalElements").value(25))
+                .andExpect(jsonPath("$.totalPages").value(2));
+
+        verify(produtoRepository).findCatalogoPorCategoria(
+                isNull(),
+                isNull(),
+                eq(true),
+                eq(false),
+                isNull(),
+                eq(new BigDecimal("2")),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Deve rejeitar uma faixa de preço invertida")
+    void getAllComFaixaDePrecoInvalida() throws Exception {
+        mockMvc.perform(get("/admin/produtos")
+                        .param("precoMinimo", "10")
+                        .param("precoMaximo", "2"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

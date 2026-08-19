@@ -32,6 +32,7 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdutoService;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.DetalheProdutoService;
 
 @WebMvcTest({ProdController.class, CategoriaController.class})
 @Import({SecurityConfigurations.class, SecurityFilter.class})
@@ -51,6 +52,9 @@ class CatalogoPublicoSecurityTest {
 
     @MockitoBean
     private ExclusaoProdutoService exclusaoProdutoService;
+
+    @MockitoBean
+    private DetalheProdutoService detalheProdutoService;
 
     @MockitoBean
     private TokenService tokenService;
@@ -73,6 +77,8 @@ class CatalogoPublicoSecurityTest {
         mockMvc.perform(get("/produto"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/categoria"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/produto/550e8400-e29b-41d4-a716-446655440000"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/admin/produtos"))
                 .andExpect(status().isForbidden());

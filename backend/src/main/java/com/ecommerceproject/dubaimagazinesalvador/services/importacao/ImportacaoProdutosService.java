@@ -48,6 +48,7 @@ public class ImportacaoProdutosService {
     private static final String UPSERT_PRODUTO = """
             INSERT INTO produtos (
                 codigo_santri,
+                id_publico,
                 nome,
                 nome_exibido_site,
                 ncm,
@@ -87,8 +88,8 @@ public class ImportacaoProdutosService {
                 em_promocao,
                 especial
             ) VALUES (
+                ?, UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 FALSE, FALSE, TRUE, ?, FALSE, FALSE
             )
             ON DUPLICATE KEY UPDATE

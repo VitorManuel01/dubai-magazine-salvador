@@ -121,6 +121,10 @@ function ImportacaoEstoque() {
           </p>
         </div>
         <div className="import-heading__actions">
+          <Link className="btn btn-outline-secondary" to="/minha-conta">
+            <i className="bi bi-arrow-left" />
+            Voltar para Minha Conta
+          </Link>
           <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">
             Importar produtos
           </Link>
