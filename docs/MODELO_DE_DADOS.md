@@ -18,9 +18,9 @@ erDiagram
     CATEGORIAS ||--o{ CATEGORIAS : categoria_pai
     CATEGORIAS ||--o{ PRODUTOS : classifica
     CATEGORIAS ||--o| VITRINES_HOME : apresenta
+    PRODUTOS ||--o{ IMAGENS_PRODUTO : possui
     VITRINES_LOJA ||--|{ PRODUTOS_VITRINE_LOJA : possui
     PRODUTOS ||--o| PRODUTOS_VITRINE_LOJA : representa
-    PRODUTOS_VITRINE_LOJA ||--o{ IMAGENS_PRODUTO_VITRINE_LOJA : exibe
     PRODUTOS_VITRINE_LOJA ||--o{ SECOES_PRODUTO_VITRINE_LOJA : descreve
 ```
 
@@ -108,14 +108,25 @@ com a data atual, evitando que um preço vencido continue público mesmo antes d
 
 ### Dados editoriais da aplicação
 
+- `id_publico`, UUID usado nas URLs públicas sem revelar o código Santri;
 - `nome_exibido_site`;
-- `imagem_url`;
-- `imagem_hover_url`, usada como segunda foto do card em dispositivos com mouse;
+- `descricao_site`, com a descrição única da página detalhada;
 - `exibir_no_site`;
 - `destaque_na_home`.
 
 Esses campos editoriais não são substituídos indiscriminadamente pela importação. O nome público
 só volta a acompanhar o Santri quando ainda está vazio ou igual ao nome anterior.
+
+### `imagens_produto`
+
+É a galeria editorial única do produto, com no máximo oito registros ordenados. A primeira posição
+é a imagem normal do card e a segunda é exibida no hover; a página detalhada e a vitrine física
+consomem a coleção completa. Assim, uma edição feita em qualquer uma das telas é refletida nas
+demais. As colunas antigas `imagem_url` e `imagem_hover_url` permanecem apenas para compatibilidade
+com dados anteriores e foram migradas para essa galeria pela V23.
+
+`descricao_site` aceita somente a marcação controlada da aplicação para negrito, lista e tamanho
+de fonte. O frontend converte essa marcação em elementos React, sem executar HTML armazenado.
 
 ### Preço com IPI
 
@@ -183,7 +194,7 @@ duas vitrines.
 Limites da regra de negócio:
 
 - até 20 opções por vitrine;
-- até 20 imagens por opção;
+- até 8 imagens compartilhadas por produto;
 - até 30 seções por opção;
 - rótulo com até 100 caracteres;
 - título de seção com até 180 caracteres;
@@ -192,8 +203,9 @@ Limites da regra de negócio:
 
 ### Imagens e seções
 
-`imagens_produto_vitrine_loja` mantém as URLs ordenadas. Se a lista estiver vazia, a interface
-usa a imagem principal do produto.
+A vitrine não mantém uma galeria independente. Cada opção utiliza `imagens_produto`, pertencente
+ao produto referenciado. Ao salvar uma edição, a versão original da lista é enviada para impedir
+que um formulário antigo sobrescreva imagens alteradas simultaneamente em outra tela.
 
 `secoes_produto_vitrine_loja` guarda blocos de título e texto, como resumo, motor, consumo,
 dimensões e características. O modelo não fixa esses títulos, permitindo representar produtos
@@ -237,10 +249,12 @@ além de veículos.
 | V18 | controle transacional do limite de três produtos na Seleção da Loja |
 | V19 | compatibilidade do identificador do controle da Seleção da Loja com JPA |
 | V20 | remoção de destaques ocultos ou indisponíveis da Seleção da Loja |
+| V21 | dados de preço e período das promoções de venda |
+| V22 | segunda imagem do produto para hover no catálogo |
+| V23 | identificador público, descrição e galeria compartilhada de até oito fotos |
 
 Nunca altere uma migration que já foi aplicada em um ambiente compartilhado. Toda mudança futura
-de esquema deve ser uma nova migration `V21__descricao.sql`, `V22__descricao.sql` e assim por
-diante.
+de esquema deve ser criada em uma nova migration posterior à V23.
 
 ## Recriação do banco
 

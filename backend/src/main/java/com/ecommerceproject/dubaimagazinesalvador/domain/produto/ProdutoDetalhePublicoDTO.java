@@ -1,46 +1,37 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
-public record ProdutoCatalogoPublicoDTO(
+public record ProdutoDetalhePublicoDTO(
         String idPublico,
         String nomeExibidoSite,
-        String marca,
         BigDecimal precoComIpi,
         boolean emPromocao,
         BigDecimal precoPromocao,
         BigDecimal porcDesconto,
-        LocalDate dataFinalProm,
         boolean esgotado,
-        String categoriaCodigo,
         String categoriaNome,
         String categoriaCaminho,
-        String imagemUrl,
-        String imagemHoverUrl,
-        List<String> imagens
+        List<String> imagens,
+        String descricao
 ) {
 
-    public ProdutoCatalogoPublicoDTO(Produto produto) {
+    public ProdutoDetalhePublicoDTO(Produto produto) {
         this(
                 produto.getIdPublico(),
                 produto.getNomeExibidoSite(),
-                produto.getMarca(),
                 produto.getPrecoComIpi(),
                 produto.isPromocaoVigente(),
                 produto.isPromocaoVigente() ? produto.getPrecoPromocao() : null,
                 produto.isPromocaoVigente() ? produto.getPorcDesconto() : null,
-                produto.isPromocaoVigente() ? produto.getDataFinalProm() : null,
                 produto.isEsgotado(),
-                produto.getCategoria().getCodigo(),
                 produto.getCategoria().getNome(),
                 produto.getCategoria().getCaminho(),
-                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemUrl()),
-                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemHoverUrl()),
                 produto.getUrlsImagens().stream()
                         .map(ImagemProdutoCatalogo::criarUrlPublica)
-                        .toList()
+                        .toList(),
+                produto.getDescricaoSite()
         );
     }
 }

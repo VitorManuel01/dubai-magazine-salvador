@@ -3,10 +3,12 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -71,6 +73,28 @@ class ProdutoTest {
 
         assertEquals("/uploads/produtos/principal.webp", produto.getImagemUrl());
         assertEquals("/uploads/produtos/hover.webp", produto.getImagemHoverUrl());
+    }
+
+    @Test
+    void deveUsarAsDuasPrimeirasFotosDaGaleriaNoCardELimitarEmOito() {
+        Produto produto = new Produto(
+                produtoImportado("GIZ DE GESSO", "5.49", "13.00"),
+                categoria,
+                LocalDateTime.now()
+        );
+        List<String> imagens = java.util.stream.IntStream.rangeClosed(1, 8)
+                .mapToObj(indice -> "/uploads/produtos/foto-" + indice + ".webp")
+                .toList();
+
+        produto.substituirImagens(imagens);
+
+        assertEquals(imagens, produto.getUrlsImagens());
+        assertEquals(imagens.getFirst(), produto.getImagemUrl());
+        assertEquals(imagens.get(1), produto.getImagemHoverUrl());
+        assertThrows(
+                IllegalStateException.class,
+                () -> produto.adicionarImagem("/uploads/produtos/foto-9.webp")
+        );
     }
 
     @Test

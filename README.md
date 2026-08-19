@@ -17,8 +17,10 @@ itens disponíveis e direciona o cliente para atendimento ou compra presencial.
 - atualização separada de estoque pelo Inventário ODS, lendo somente código Santri e quantidade;
 - sincronização separada das promoções de venda por ODS, com período e preço promocional;
 - preservação das imagens, nomes públicos e decisões editoriais durante novas importações;
-- administração da visibilidade, do nome público, da imagem e do destaque dos produtos;
-- vitrine interna da loja física com variações, galeria de fotos e seções descritivas;
+- galeria compartilhada de até oito fotos por produto, usada no catálogo e na vitrine física;
+- página pública detalhada do produto com galeria, preços, disponibilidade e descrição editorial;
+- administração da visibilidade, do nome público, das fotos, da descrição e do destaque dos produtos;
+- vitrine interna da loja física com variações, galeria compartilhada e seções descritivas próprias;
 - acesso de funcionários somente para consulta da vitrine interna;
 - cadastro de funcionários exclusivo para administradores;
 - autenticação por código Santri e senha, com JWT e bloqueios contra tentativas repetidas;

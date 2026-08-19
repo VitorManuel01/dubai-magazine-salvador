@@ -4,6 +4,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 
@@ -13,8 +18,14 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Lob;
+import org.hibernate.annotations.BatchSize;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -39,6 +50,9 @@ public class Produto {
     @Id
     @Column(name = "codigo_santri", length = 32)
     private String codigoSantri;
+
+    @Column(name = "id_publico", nullable = false, unique = true, length = 36)
+    private String idPublico = UUID.randomUUID().toString();
 
     @Column(nullable = false, length = 500)
     private String nome;
@@ -136,10 +150,19 @@ public class Produto {
     private Categoria categoria;
 
     @Column(name = "imagem_url", length = 1000)
-    private String imagemUrl;
+    private String imagemUrlLegada;
 
     @Column(name = "imagem_hover_url", length = 1000)
-    private String imagemHoverUrl;
+    private String imagemHoverUrlLegada;
+
+    @OneToMany(mappedBy = "produto", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("ordem ASC, id ASC")
+    @BatchSize(size = 60)
+    private List<ProdutoImagem> imagens = new ArrayList<>();
+
+    @Lob
+    @Column(name = "descricao_site", columnDefinition = "TEXT")
+    private String descricaoSite;
 
     @Column(name = "exibir_no_site", nullable = false)
     private boolean exibirNoSite;
@@ -193,7 +216,9 @@ public class Produto {
         this.precoSemIpi = valorOuZero(data.precoVenda());
         this.percentualIpiEntrada = BigDecimal.ZERO;
         this.categoria = categoria;
-        this.imagemUrl = data.imagemUrl();
+        if (data.imagemUrl() != null && !data.imagemUrl().isBlank()) {
+            adicionarImagem(data.imagemUrl());
+        }
         this.exibirNoSite = data.exibirNoSite();
         this.destaqueNaHome = false;
         this.disponivelUltimaImportacao = true;
@@ -201,7 +226,7 @@ public class Produto {
 
     public Produto(ProdutoImportacaoDTO data, Categoria categoria, LocalDateTime importadoEm) {
         this.codigoSantri = data.codigoSantri();
-        this.imagemUrl = null;
+        this.imagemUrlLegada = null;
         this.exibirNoSite = false;
         this.destaqueNaHome = false;
         atualizarDadosImportados(data, categoria, importadoEm);
@@ -278,10 +303,138 @@ public class Produto {
         this.exibirNoSite = exibirNoSite;
         this.destaqueNaHome = destaqueNaHome;
         if (novaImagemUrl != null && !novaImagemUrl.isBlank()) {
-            this.imagemUrl = novaImagemUrl;
+            definirImagemNaPosicao(0, novaImagemUrl);
         }
         if (novaImagemHoverUrl != null && !novaImagemHoverUrl.isBlank()) {
-            this.imagemHoverUrl = novaImagemHoverUrl;
+            definirImagemNaPosicao(1, novaImagemHoverUrl);
+        }
+    }
+
+    public String getImagemUrl() {
+        return imagens.isEmpty() ? imagemUrlLegada : imagens.getFirst().getUrl();
+    }
+
+    public String getImagemHoverUrl() {
+        return imagens.size() < 2 ? imagemHoverUrlLegada : imagens.get(1).getUrl();
+    }
+
+    public List<String> getUrlsImagens() {
+        if (imagens.isEmpty()) {
+            List<String> legadas = new ArrayList<>(2);
+            if (imagemUrlLegada != null && !imagemUrlLegada.isBlank()) {
+                legadas.add(imagemUrlLegada);
+            }
+            if (imagemHoverUrlLegada != null && !imagemHoverUrlLegada.isBlank()
+                    && !legadas.contains(imagemHoverUrlLegada)) {
+                legadas.add(imagemHoverUrlLegada);
+            }
+            return List.copyOf(legadas);
+        }
+        return imagens.stream().map(ProdutoImagem::getUrl).toList();
+    }
+
+    public ProdutoImagem adicionarImagem(String url) {
+        if (imagens.size() >= 8) {
+            throw new IllegalStateException("O produto já possui o limite de 8 fotos.");
+        }
+        String normalizada = normalizarUrlImagem(url);
+        if (getUrlsImagens().contains(normalizada)) {
+            throw new IllegalArgumentException("Esta foto já pertence ao produto.");
+        }
+        ProdutoImagem imagem = new ProdutoImagem(this, normalizada, imagens.size());
+        imagens.add(imagem);
+        sincronizarImagensLegadas();
+        return imagem;
+    }
+
+    public String removerImagem(Long imagemId) {
+        ProdutoImagem imagem = imagens.stream()
+                .filter(item -> item.getId().equals(imagemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Foto não encontrada no produto."));
+        imagens.remove(imagem);
+        reindexarImagens();
+        sincronizarImagensLegadas();
+        return imagem.getUrl();
+    }
+
+    public void reordenarImagens(List<Long> idsOrdenados) {
+        if (idsOrdenados == null || idsOrdenados.size() != imagens.size()) {
+            throw new IllegalArgumentException("A ordem deve conter todas as fotos do produto.");
+        }
+        Set<Long> idsUnicos = new LinkedHashSet<>(idsOrdenados);
+        Set<Long> idsAtuais = imagens.stream()
+                .map(ProdutoImagem::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (idsUnicos.size() != idsOrdenados.size() || !idsAtuais.equals(idsUnicos)) {
+            throw new IllegalArgumentException("A ordem contém fotos inválidas ou duplicadas.");
+        }
+        List<ProdutoImagem> ordenadas = idsOrdenados.stream()
+                .map(id -> imagens.stream()
+                        .filter(imagem -> imagem.getId().equals(id))
+                        .findFirst()
+                        .orElseThrow())
+                .toList();
+        imagens.clear();
+        imagens.addAll(ordenadas);
+        reindexarImagens();
+        sincronizarImagensLegadas();
+    }
+
+    public void substituirImagens(List<String> urls) {
+        LinkedHashSet<String> normalizadas = new LinkedHashSet<>();
+        if (urls != null) {
+            urls.stream()
+                    .filter(url -> url != null && !url.isBlank())
+                    .map(this::normalizarUrlImagem)
+                    .forEach(normalizadas::add);
+        }
+        if (normalizadas.size() > 8) {
+            throw new IllegalArgumentException("Cada produto pode possuir no máximo 8 fotos.");
+        }
+        imagens.clear();
+        int ordem = 0;
+        for (String url : normalizadas) {
+            imagens.add(new ProdutoImagem(this, url, ordem++));
+        }
+        sincronizarImagensLegadas();
+    }
+
+    public void atualizarDescricaoSite(String descricaoSite) {
+        this.descricaoSite = descricaoSite;
+    }
+
+    private void definirImagemNaPosicao(int posicao, String url) {
+        List<String> atuais = new ArrayList<>(getUrlsImagens());
+        while (atuais.size() <= posicao) {
+            atuais.add("");
+        }
+        atuais.set(posicao, normalizarUrlImagem(url));
+        substituirImagens(atuais);
+    }
+
+    private String normalizarUrlImagem(String url) {
+        if (url == null || url.isBlank() || url.length() > 1000) {
+            throw new IllegalArgumentException("A URL da foto é inválida.");
+        }
+        return url.trim();
+    }
+
+    private void reindexarImagens() {
+        for (int indice = 0; indice < imagens.size(); indice++) {
+            imagens.get(indice).atualizarOrdem(indice);
+        }
+    }
+
+    private void sincronizarImagensLegadas() {
+        imagemUrlLegada = imagens.isEmpty() ? null : imagens.getFirst().getUrl();
+        imagemHoverUrlLegada = imagens.size() < 2 ? null : imagens.get(1).getUrl();
+    }
+
+    @PrePersist
+    private void garantirIdPublico() {
+        if (idPublico == null || idPublico.isBlank()) {
+            idPublico = UUID.randomUUID().toString();
         }
     }
 

@@ -113,8 +113,15 @@ O catálogo usa parâmetros na URL:
 Visitantes recebem somente o DTO público. Administradores usam os endpoints administrativos e
 podem ver itens ocultos, editar o nome público, imagem, visibilidade e destaque.
 
-A categoria interna Uso e Consumo é excluída da interface pública por
-`src/utils/categoriasCatalogo.ts`.
+Cada card abre `/produtos/:idPublico`, uma página expandida que não expõe o código Santri na URL.
+Ela reúne a galeria completa, preços, disponibilidade e uma única área de descrição.
+
+O filtro **Preço no catálogo** envia `precoMinimo` e `precoMaximo` ao backend. A faixa é aplicada
+antes da paginação, de modo que a quantidade total e todas as páginas sejam recalculadas com os
+produtos filtrados. Ao aplicar ou limpar a faixa, o catálogo retorna à primeira página.
+
+A categoria interna Uso e Consumo é excluída pela consulta pública do backend antes da paginação.
+`src/utils/categoriasCatalogo.ts` também impede que ela seja oferecida na navegação pública.
 
 ### Cards de produto
 
@@ -126,12 +133,23 @@ Quando não há promoção, o preço de venda é maior e fica na parte inferior 
 promoção, o preço anterior aparece riscado e o preço promocional, acompanhado do desconto, recebe
 destaque.
 
+Cada produto pode possuir até **8 fotos**. A primeira aparece normalmente no card e a segunda no
+hover. A página expandida mostra todas em miniaturas. Administradores podem adicionar, remover e
+reordenar fotos e editar a descrição com negrito, listas e tamanhos controlados. A prévia e a
+renderização pública não usam HTML livre.
+
 No catálogo administrativo, os cards têm altura fixa de **500 px**. Código, estoque, marca e
 categoria são organizados em linhas de rótulo e valor; quando necessário, apenas a área de dados
 rola internamente. A edição preserva a altura do card e disponibiliza os campos em uma área rolável.
 
+As ações em lote permitem selecionar a página atual ou buscar produtos de todas as páginas que
+correspondem aos filtros ativos. A seleção global respeita o limite de **200 produtos por operação**
+aceito pelos endpoints de exibição, ocultação e exclusão. Quando há mais de 200 resultados, a
+interface informa quantos foram selecionados e o total encontrado.
+
 Ao final do catálogo administrativo há atalhos para as três importações: relação de produtos,
-promoções de venda e atualização de estoque.
+promoções de venda e atualização de estoque. Cada tela de importação também oferece retorno direto
+para `/minha-conta`.
 
 ## Vitrines
 
@@ -150,12 +168,13 @@ A consulta é exclusiva para administradores e funcionários. O administrador co
 
 - produtos que representam opções ou cores;
 - rótulo de cada opção;
-- até 20 fotos por opção;
+- a galeria compartilhada de até 8 fotos por produto;
 - seções de título e texto;
 - estado ativo ou rascunho.
 
 O botão **Adicionar foto** cria um card local. A imagem é validada, recebe prévia e só é enviada
-quando a vitrine é salva.
+quando a vitrine é salva. Como a galeria pertence ao produto, uma alteração feita nessa tela é
+refletida no catálogo, e uma alteração feita no detalhe administrativo é refletida na vitrine.
 
 ## Assets
 

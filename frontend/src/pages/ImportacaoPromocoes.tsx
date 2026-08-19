@@ -93,6 +93,10 @@ function ImportacaoPromocoes() {
           <p>Envie o relatório Promoções de Venda gerado no Santri.</p>
         </div>
         <div className="import-heading__actions">
+          <Link className="btn btn-outline-secondary" to="/minha-conta">
+            <i className="bi bi-arrow-left" />
+            Voltar para Minha Conta
+          </Link>
           <Link className="btn btn-outline-primary" to="/admin/importacao-produtos">Importar produtos</Link>
           <Link className="btn btn-outline-secondary" to="/produtos">Voltar ao catálogo</Link>
         </div>

@@ -7,7 +7,8 @@ formato ODS. A importação sincroniza os dados operacionais do catálogo sem su
 editoriais administradas no site.
 
 Somente administradores podem abrir a tela `/admin/importacao-produtos` e chamar a rota de
-importação.
+importação. As telas de produtos, promoções e inventário possuem um botão de retorno para
+`/minha-conta`, sem depender do botão Voltar do navegador.
 
 ## Promoções de venda
 

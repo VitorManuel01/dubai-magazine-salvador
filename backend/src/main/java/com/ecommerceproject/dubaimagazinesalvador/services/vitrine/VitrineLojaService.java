@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ImagemProdutoCatalogo;
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.ProdutoCandidatoVitrineLojaDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.ProdutoVitrineLoja;
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.ProdutoVitrineLojaRequestDTO;
@@ -29,7 +30,7 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.VitrineLojaReposi
 public class VitrineLojaService {
 
     private static final int MAXIMO_OPCOES = 20;
-    private static final int MAXIMO_IMAGENS_POR_OPCAO = 20;
+    private static final int MAXIMO_IMAGENS_POR_OPCAO = 8;
     private static final int MAXIMO_SECOES_POR_OPCAO = 30;
 
     private final VitrineLojaRepository vitrineRepository;
@@ -164,7 +165,13 @@ public class VitrineLojaService {
                 throw erro("O rótulo da opção deve possuir no máximo 100 caracteres.");
             }
             int ordem = numeroNaoNegativo(opcao.ordem(), indice, "ordem da opção");
-            List<String> imagens = normalizarImagens(opcao.imagens());
+            boolean atualizarImagens = Boolean.TRUE.equals(opcao.atualizarImagens());
+            List<String> imagens = atualizarImagens
+                    ? normalizarImagens(opcao.imagens())
+                    : null;
+            List<String> imagensOriginais = opcao.imagensOriginais() == null
+                    ? null
+                    : normalizarImagens(opcao.imagensOriginais());
             List<SecaoNormalizada> secoes = normalizarSecoes(opcao.secoes());
             if (ativo && secoes.isEmpty()) {
                 throw erro(
@@ -172,7 +179,15 @@ public class VitrineLojaService {
                                 + " precisa possuir ao menos uma seção para ser ativada."
                 );
             }
-            opcoes.add(new OpcaoNormalizada(produto, rotulo, ordem, imagens, secoes));
+            opcoes.add(new OpcaoNormalizada(
+                    produto,
+                    rotulo,
+                    ordem,
+                    imagens,
+                    atualizarImagens,
+                    imagensOriginais,
+                    secoes
+            ));
         }
 
         List<String> conflitos = vitrineRepository.encontrarProdutosEmOutrasVitrines(
@@ -194,7 +209,7 @@ public class VitrineLojaService {
             return List.of();
         }
         if (imagensRecebidas.size() > MAXIMO_IMAGENS_POR_OPCAO) {
-            throw erro("Cada opção pode possuir no máximo 20 imagens.");
+            throw erro("Cada produto pode possuir no máximo 8 fotos.");
         }
 
         LinkedHashSet<String> imagens = new LinkedHashSet<>();
@@ -243,11 +258,35 @@ public class VitrineLojaService {
 
     private void adicionarOpcoes(VitrineLoja vitrine, List<OpcaoNormalizada> opcoes) {
         for (OpcaoNormalizada dadosOpcao : opcoes) {
+            if (dadosOpcao.atualizarImagens()) {
+                try {
+                    List<String> imagensAtuais = dadosOpcao.produto().getUrlsImagens().stream()
+                            .map(ImagemProdutoCatalogo::criarUrlPublica)
+                            .toList();
+                    List<String> imagensFinais;
+                    if (dadosOpcao.imagensOriginais() == null) {
+                        LinkedHashSet<String> mescladas = new LinkedHashSet<>(imagensAtuais);
+                        mescladas.addAll(dadosOpcao.imagens());
+                        imagensFinais = List.copyOf(mescladas);
+                    } else {
+                        if (!imagensAtuais.equals(dadosOpcao.imagensOriginais())) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.CONFLICT,
+                                    "As fotos do produto foram alteradas em outra tela. Reabra a vitrine antes de salvar."
+                            );
+                        }
+                        imagensFinais = dadosOpcao.imagens();
+                    }
+                    dadosOpcao.produto().substituirImagens(imagensFinais);
+                } catch (IllegalArgumentException e) {
+                    throw erro(e.getMessage());
+                }
+            }
             ProdutoVitrineLoja opcao = new ProdutoVitrineLoja(
                     dadosOpcao.produto(),
                     dadosOpcao.rotulo(),
                     dadosOpcao.ordem(),
-                    dadosOpcao.imagens()
+                    List.of()
             );
             for (SecaoNormalizada dadosSecao : dadosOpcao.secoes()) {
                 opcao.adicionarSecao(new SecaoVitrineLoja(
@@ -327,6 +366,8 @@ public class VitrineLojaService {
             String rotulo,
             int ordem,
             List<String> imagens,
+            boolean atualizarImagens,
+            List<String> imagensOriginais,
             List<SecaoNormalizada> secoes
     ) {
     }

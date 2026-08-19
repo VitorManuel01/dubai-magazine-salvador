@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import ProdutosList from './pages/ProdutosList';
+import ProdutoDetalhe from './pages/ProdutoDetalhe';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Login from './components/login/Login';
@@ -271,6 +272,7 @@ function ConteudoAplicacao() {
             {/* Rota raiz agora abre a Home com o carrossel promocional */}
             <Route path="/" element={<Home />} />
             <Route path="/produtos" element={<ProdutosList />} />
+            <Route path="/produtos/:idPublico" element={<ProdutoDetalhe />} />
             <Route path="/quem-somos" element={<QuemSomos />} />
             <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
             <Route path="/contato" element={<Contato />} />

@@ -74,6 +74,8 @@ export interface OpcaoVitrineLojaRequest {
   rotuloOpcao: string;
   ordem: number;
   imagens: string[];
+  atualizarImagens: boolean;
+  imagensOriginais: string[] | null;
   secoes: SecaoVitrineLojaRequest[];
 }
 

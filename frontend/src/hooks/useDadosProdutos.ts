@@ -4,7 +4,6 @@ import { PaginaProdutos } from "../interface/PaginaProdutos";
 import { useQuery } from "@tanstack/react-query";
 import {
     ehCodigoCategoriaInterna,
-    produtoPermitidoNoCatalogo,
 } from "../utils/categoriasCatalogo";
 
 
@@ -16,6 +15,8 @@ const fetchData = async (
     somenteDestaques = false,
     perfil = 'publico',
     apenasVisiveis = false,
+    precoMinimo: number | null = null,
+    precoMaximo: number | null = null,
 ): Promise<PaginaProdutos> => {
     const administracao = perfil === 'ROLE_ADMIN';
     const interno = administracao || perfil === 'ROLE_FUNCIONARIO';
@@ -39,23 +40,14 @@ const fetchData = async (
                 ...(busca ? { busca } : {}),
                 ...(somenteDestaques ? { somenteDestaques: true } : {}),
                 ...(administracao && apenasVisiveis ? { apenasVisiveis: true } : {}),
+                ...(precoMinimo !== null ? { precoMinimo } : {}),
+                ...(precoMaximo !== null ? { precoMaximo } : {}),
                 pagina,
                 tamanho: 24,
             },
         },
     );
-    if (interno) {
-        return response.data;
-    }
-
-    const produtosPermitidos = response.data.content.filter(produtoPermitidoNoCatalogo);
-    const removidosNestaPagina = response.data.content.length - produtosPermitidos.length;
-
-    return {
-        ...response.data,
-        content: produtosPermitidos,
-        totalElements: Math.max(0, response.data.totalElements - removidosNestaPagina),
-    };
+    return response.data;
 }
 
 
@@ -67,6 +59,8 @@ export function useDadosProdutos(
     somenteDestaques = false,
     habilitado = true,
     apenasVisiveis = false,
+    precoMinimo: number | null = null,
+    precoMaximo: number | null = null,
 ){
     const query = useQuery({
         queryFn: () => fetchData(
@@ -76,6 +70,8 @@ export function useDadosProdutos(
             somenteDestaques,
             perfil,
             apenasVisiveis,
+            precoMinimo,
+            precoMaximo,
         ),
         queryKey: [
             'dados-produto',
@@ -85,6 +81,8 @@ export function useDadosProdutos(
             pagina,
             perfil,
             apenasVisiveis ? 'apenas-visiveis' : 'todos-status',
+            precoMinimo ?? 'sem-preco-minimo',
+            precoMaximo ?? 'sem-preco-maximo',
         ],
         retry: 2,
         enabled: habilitado,

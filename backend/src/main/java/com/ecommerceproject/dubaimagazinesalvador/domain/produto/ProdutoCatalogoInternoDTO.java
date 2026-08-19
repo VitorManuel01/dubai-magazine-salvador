@@ -2,9 +2,11 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.produto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record ProdutoCatalogoInternoDTO(
         String codigoSantri,
+        String idPublico,
         String nomeExibidoSite,
         String marca,
         BigDecimal precoComIpi,
@@ -17,11 +19,13 @@ public record ProdutoCatalogoInternoDTO(
         String categoriaNome,
         String categoriaCaminho,
         String imagemUrl,
-        String imagemHoverUrl
+        String imagemHoverUrl,
+        List<String> imagens
 ) {
     public ProdutoCatalogoInternoDTO(Produto produto) {
         this(
                 produto.getCodigoSantri(),
+                produto.getIdPublico(),
                 produto.getNomeExibidoSite(),
                 produto.getMarca(),
                 produto.getPrecoComIpi(),
@@ -34,7 +38,10 @@ public record ProdutoCatalogoInternoDTO(
                 produto.getCategoria().getNome(),
                 produto.getCategoria().getCaminho(),
                 ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemUrl()),
-                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemHoverUrl())
+                ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemHoverUrl()),
+                produto.getUrlsImagens().stream()
+                        .map(ImagemProdutoCatalogo::criarUrlPublica)
+                        .toList()
         );
     }
 }

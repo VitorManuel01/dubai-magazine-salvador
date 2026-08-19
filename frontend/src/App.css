@@ -1067,7 +1067,7 @@ a.store-benefit:focus-visible strong {
 
 .home-category-shortcuts__track {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: flex-start;
   gap: 16px;
   padding: 12px 2px 8px;

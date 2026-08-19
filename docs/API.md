@@ -137,14 +137,21 @@ Parâmetros:
 |---|---:|---|
 | `categoriaCodigo` | vazio | inclui a categoria e seus descendentes |
 | `busca` | vazio | pesquisa nome público e marca |
+| `precoMinimo` | vazio | preço de venda com IPI mínimo, inclusivo |
+| `precoMaximo` | vazio | preço de venda com IPI máximo, inclusivo |
 | `somenteDestaques` | `false` | limita à Seleção da Loja |
 | `pagina` | `0` | página atual |
 | `tamanho` | `24` | entre 1 e 60 |
+
+A categoria, a busca e a faixa de preço são aplicadas no banco **antes** da paginação. Por isso,
+`totalElements`, `totalPages` e o conteúdo de cada página representam somente o conjunto filtrado.
+Preços negativos e faixas em que `precoMinimo` é maior que `precoMaximo` retornam `400`.
 
 Item público:
 
 ```json
 {
+  "idPublico": "550e8400-e29b-41d4-a716-446655440000",
   "nomeExibidoSite": "Produto",
   "marca": "Marca",
   "precoComIpi": 100.00,
@@ -156,11 +163,23 @@ Item público:
   "categoriaNome": "Categoria",
   "categoriaCaminho": "Grupo > Categoria",
   "imagemUrl": "/catalogo/imagens/uuid.webp",
-  "imagemHoverUrl": "/catalogo/imagens/outro-uuid.webp"
+  "imagemHoverUrl": "/catalogo/imagens/outro-uuid.webp",
+  "imagens": [
+    "/catalogo/imagens/uuid.webp",
+    "/catalogo/imagens/outro-uuid.webp"
+  ]
 }
 ```
 
-O contrato público nunca contém código Santri, código de barras ou outros dados operacionais.
+O contrato público nunca contém código Santri, código de barras ou outros dados operacionais. O
+`idPublico` é usado na navegação sem revelar o código interno do Santri. A galeria aceita até oito
+fotos; as posições 1 e 2 alimentam, respectivamente, a imagem normal e o hover do card.
+
+### `GET /produto/{idPublico}`
+
+Público. Retorna os dados comerciais seguros, a galeria completa e a descrição editorial de um
+produto visível. Produtos ocultos, indisponíveis ou pertencentes a categorias internas retornam
+`404`.
 
 ### `GET /interno/produtos`
 
@@ -173,6 +192,27 @@ campos administrativos.
 Somente administrador. Aceita os mesmos parâmetros e inclui produtos ocultos, indisponíveis e
 todos os campos operacionais. Por padrão, os produtos visíveis são ordenados antes dos ocultos.
 O parâmetro `apenasVisiveis=true` restringe o resultado aos produtos disponíveis no catálogo.
+
+### `GET /admin/produtos/{idPublico}/detalhe`
+
+Somente administrador. Retorna o detalhe mesmo quando o produto está oculto, incluindo código
+Santri, galeria com identificadores internos e os demais campos administrativos.
+
+### `PUT /admin/produtos/{codigoSantri}/descricao`
+
+Somente administrador. Recebe `{ "descricao": "..." }`, com até 20.000 caracteres. A formatação
+controlada aceita `**negrito**`, itens iniciados por `- ` e tamanhos de 12, 14, 16, 18, 20, 24,
+28 ou 32 px por meio de `[tamanho=NN]texto[/tamanho]`. O frontend transforma a marcação em
+elementos React e não injeta HTML livre.
+
+### Galeria administrativa
+
+- `POST /admin/produtos/{codigoSantri}/imagens`: adiciona uma foto por `multipart/form-data`;
+- `DELETE /admin/produtos/{codigoSantri}/imagens/{imagemId}`: remove uma foto;
+- `PUT /admin/produtos/{codigoSantri}/imagens/ordem`: recebe `{ "imagens": [3, 1, 2] }` com todos
+  os identificadores na ordem desejada.
+
+As três rotas exigem administrador e respeitam o máximo de oito fotos.
 
 ### `PUT /admin/produtos/visibilidade`
 
@@ -460,6 +500,8 @@ Somente administrador.
       "rotuloOpcao": "Azul",
       "ordem": 0,
       "imagens": ["/catalogo/imagens/uuid.webp"],
+      "atualizarImagens": true,
+      "imagensOriginais": [],
       "secoes": [
         {
           "titulo": "Especificações",
@@ -475,6 +517,9 @@ Somente administrador.
 ### `PUT /admin/vitrine-loja/{id}`
 
 Somente administrador. Substitui a configuração de opções e seções pelo corpo recebido.
+As imagens pertencem ao produto, e não à vitrine: por isso, qualquer alteração aparece também no
+catálogo. `imagensOriginais` funciona como controle de concorrência e impede que um formulário
+antigo sobrescreva uma galeria modificada em outra tela.
 
 ### `DELETE /admin/vitrine-loja/{id}`
 

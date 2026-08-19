@@ -247,6 +247,13 @@
   font-size: 0.78rem;
 }
 
+.filter-error {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .filter-actions {
   display: flex;
   gap: 8px;
@@ -495,6 +502,11 @@
   font-weight: 700;
 }
 
+.catalog-bulk-actions__notice {
+  color: #8a4b08;
+  font-weight: 700;
+}
+
 .catalog-bulk-actions__error {
   color: #b42318;
   font-weight: 700;
@@ -504,4 +516,5 @@
   .catalog-bulk-actions > * {
     width: 100%;
   }
+
 }

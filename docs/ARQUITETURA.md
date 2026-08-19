@@ -62,11 +62,12 @@ Pacote base:
 `Produto` concentra os dados recebidos do relatório analítico do Santri e os campos editoriais
 do site. O catálogo público usa `ProdutoCatalogoPublicoDTO`, que contém apenas:
 
+- identificador público aleatório;
 - nome exibido no site;
 - marca;
 - preço com IPI;
 - código, nome e caminho público da categoria;
-- URL pública da imagem.
+- URLs públicas da galeria de até oito fotos.
 
 Campos como código Santri, código de barras, estoque, NCM e dados logísticos só aparecem no DTO
 administrativo.
@@ -83,8 +84,11 @@ aplicação.
 
 ### Imagens
 
-`ArmazenamentoImagemProdutoService` é usado tanto para a imagem principal de produto quanto para
-as galerias da vitrine física. O serviço:
+`ProdutoImagem` representa a galeria única do produto. Catálogo e vitrine física leem a mesma
+coleção ordenada; a primeira posição é a foto principal e a segunda é o hover. A migration V23
+converte as duas colunas antigas e as fotos já cadastradas na vitrine sem perder os arquivos.
+
+`ArmazenamentoImagemProdutoService` armazena os arquivos dessa galeria. O serviço:
 
 - limita o arquivo a 5 MB;
 - valida extensão, MIME declarado e assinatura binária;
@@ -127,6 +131,7 @@ banco e os arquivos enviados ficam no diretório externo `PRODUCT_IMAGES_DIR`.
 |---|---|---|
 | `/` | público | home |
 | `/produtos` | público | catálogo, filtros e busca |
+| `/produtos/:idPublico` | público | detalhe, galeria e descrição do produto |
 | `/quem-somos` | público | conteúdo institucional |
 | `/politica-de-privacidade` | público | política e termos |
 | `/contato` | público | canais e endereço |
@@ -134,13 +139,16 @@ banco e os arquivos enviados ficam no diretório externo `PRODUCT_IMAGES_DIR`.
 | `/admin` | público | formulário de login interno |
 | `/minha-conta` | administrador | menu administrativo |
 | `/admin/funcionarios` | administrador | cadastro de funcionário |
-| `/admin/importacao-produtos` | administrador | importação ODS |
+| `/admin/importacao-produtos` | administrador | importação da relação de produtos ODS |
+| `/admin/importacao-promocoes` | administrador | importação das promoções ODS |
+| `/admin/importacao-estoque` | administrador | atualização do estoque pelo inventário ODS |
 | `/admin/vitrines-home` | administrador | CRUD das vitrines da home |
 | `/admin/vitrine-loja` | administrador | CRUD da vitrine física |
 | `/vitrine-loja` | funcionário ou administrador | consulta interna |
 
 `RotaAdmin` e `RotaVitrineInterna` fazem o redirecionamento visual. O backend repete e impõe as
-mesmas permissões.
+mesmas permissões. As três telas de importação oferecem retorno direto ao menu `/minha-conta`,
+além dos atalhos operacionais entre catálogo e importações.
 
 ### Estado e comunicação
 
@@ -150,6 +158,8 @@ mesmas permissões.
 - cookies e `withCredentials` ficam desativados;
 - TanStack Query mantém cache e invalida produtos e vitrines após alterações;
 - os filtros do catálogo ficam na query string, permitindo links diretos.
+- categoria, busca e faixa de preço são aplicadas na consulta JPA antes do `PageRequest`, para que
+  a contagem e a navegação representem o conjunto filtrado inteiro.
 
 ## Fluxos principais
 
@@ -179,8 +189,8 @@ sequenceDiagram
 2. o navegador valida e mostra uma prévia local;
 3. ao salvar, o arquivo é enviado para `/admin/vitrine-loja/imagens`;
 4. o backend valida novamente, armazena e devolve uma URL pública;
-5. a URL é incluída no JSON da vitrine;
-6. a consulta interna resolve a URL pela mesma origem da API.
+5. a URL é incluída na galeria compartilhada do `Produto`;
+6. catálogo e vitrine invalidam seus caches e passam a ler a mesma ordem de fotos.
 
 ## Decisões importantes
 
@@ -190,6 +200,7 @@ sequenceDiagram
 - produtos e categorias de ativo imobilizado são removidos do catálogo;
 - a vitrine física não é uma página de compra;
 - variações de cor ou modelo são representadas por produtos distintos dentro da mesma vitrine;
+- descrições do catálogo usam uma marcação restrita, renderizada sem HTML livre;
 - banners e depoimentos da home são configurações editoriais persistidas no backend.
 
 ## Pontos de extensão
