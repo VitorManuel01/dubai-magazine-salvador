@@ -15,7 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * Impede acesso HTTP nos ambientes publicados.
  *
- * O Spring normaliza os cabeçalhos Forwarded/X-Forwarded-* antes deste filtro.
+ * O Tomcat normaliza X-Forwarded-* somente para conexões do proxy loopback.
  * Assim, request.isSecure() representa o protocolo usado pelo cliente, mesmo
  * quando o TLS termina no Cloudflare ou no proxy da hospedagem.
  */

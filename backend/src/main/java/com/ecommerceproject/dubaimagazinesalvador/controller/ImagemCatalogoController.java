@@ -26,7 +26,9 @@ public class ImagemCatalogoController {
         Resource imagem = armazenamentoImagem.carregarParaCatalogo(nomeArquivo);
         return ResponseEntity.ok()
                 .contentType(tipoMidia(nomeArquivo))
-                .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+                .cacheControl(
+                        CacheControl.maxAge(Duration.ofDays(30)).cachePublic().immutable()
+                )
                 .body(imagem);
     }
 

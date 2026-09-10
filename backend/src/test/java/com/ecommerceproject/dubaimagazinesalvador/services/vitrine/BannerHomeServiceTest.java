@@ -3,6 +3,7 @@ package com.ecommerceproject.dubaimagazinesalvador.services.vitrine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -52,7 +53,7 @@ class BannerHomeServiceTest {
     }
 
     @Test
-    void deveTrocarImagemERemoverArquivoAnterior() {
+    void deveTrocarImagemEPreservarFotoAnteriorParaVerificacaoDeReferencias() {
         String antiga = "/catalogo/imagens/11111111-1111-4111-8111-111111111111.webp";
         String identificadorNovo = "22222222-2222-4222-8222-222222222222.webp";
         BannerHome banner = new BannerHome(2, antiga);
@@ -72,7 +73,7 @@ class BannerHomeServiceTest {
 
         assertThat(resposta.imagemUrl())
                 .isEqualTo("/catalogo/imagens/" + identificadorNovo);
-        verify(armazenamentoImagem).removerSeGerenciada(antiga);
+        verify(armazenamentoImagem, never()).removerSeGerenciada(antiga);
     }
 
     @Test

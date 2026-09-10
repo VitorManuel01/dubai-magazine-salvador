@@ -99,6 +99,23 @@ class ProdutoRepositoryTest {
                 .allMatch(produto -> produto.getPrecoComIpi().compareTo(new BigDecimal("2.00")) <= 0);
     }
 
+    @Test
+    void filtroDePrecoConsideraValorPersonalizadoEVoltaAoSantriQuandoDesligado() {
+        var categoria = categoriaRepository.save(new Categoria(CATEGORIA_CODIGO, "Teste", 1, "Teste", null, true));
+        var manual = criarProduto("TEST-MANUAL", "Manual", new BigDecimal("100.00"), categoria);
+        new com.ecommerceproject.dubaimagazinesalvador.domain.produto.PrecosPersonalizadosRequestDTO(
+                true, new BigDecimal("1.50"), new BigDecimal("2.00"), 2).aplicar(manual);
+        produtoRepository.saveAndFlush(manual);
+        var pagina = produtoRepository.findCatalogoPorCategoria(CATEGORIA_CODIGO, null, false, false,
+                BigDecimal.ONE, new BigDecimal("2.00"), PageRequest.of(0, 24));
+        assertThat(pagina.getTotalElements()).isEqualTo(1);
+        assertThat(pagina.getContent()).extracting(Produto::getCodigoSantri).containsExactly("TEST-MANUAL");
+        manual.setUsarPrecosPersonalizados(false);
+        produtoRepository.saveAndFlush(manual);
+        assertThat(produtoRepository.findCatalogoPorCategoria(CATEGORIA_CODIGO, null, false, false,
+                BigDecimal.ONE, new BigDecimal("2.00"), PageRequest.of(0, 24)).getTotalElements()).isZero();
+    }
+
     private Produto criarProduto(
             String codigo,
             String nome,

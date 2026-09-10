@@ -131,7 +131,12 @@ function ImportacaoPromocoes() {
                 <span>{fase === 'enviando' ? `Enviando: ${progresso}%` : 'Processando promoções...'}</span>
                 <span>{progresso}%</span>
               </div>
-              <div className="import-progress__track"><span style={{ width: `${progresso}%` }} /></div>
+              <progress
+                className="import-progress__track"
+                value={progresso}
+                max="100"
+                aria-label={`Progresso da importação: ${progresso}%`}
+              />
             </div>
           )}
           {erro && <div className="import-feedback import-feedback--error" role="alert">{erro}</div>}

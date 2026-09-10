@@ -234,8 +234,8 @@ function ProdutoList() {
         }
       }
 
-      const leftPrice = getPrice(left.precoComIpi);
-      const rightPrice = getPrice(right.precoComIpi);
+      const leftPrice = getPrice(left.usarPrecosPersonalizados ? left.precoAVista : left.precoComIpi);
+      const rightPrice = getPrice(right.usarPrecosPersonalizados ? right.precoAVista : right.precoComIpi);
 
       switch (sortBy) {
         case 'price-asc':

@@ -30,6 +30,7 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository
 import com.ecommerceproject.dubaimagazinesalvador.services.LimitadorOrigemLoginService;
 import com.ecommerceproject.dubaimagazinesalvador.services.LimitadorOrigemLoginService.EstadoLimite;
 import com.ecommerceproject.dubaimagazinesalvador.services.TentativasLoginService;
+import com.ecommerceproject.dubaimagazinesalvador.services.SessaoUsuarioService;
 
 class AuthControllerTest {
 
@@ -53,7 +54,8 @@ class AuthControllerTest {
                 tokenService,
                 mock(PasswordEncoder.class),
                 tentativasLoginService,
-                limitador
+                limitador,
+                mock(SessaoUsuarioService.class)
         );
         request = new MockHttpServletRequest();
         request.setRemoteAddr("192.0.2.60");

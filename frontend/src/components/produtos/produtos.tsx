@@ -15,6 +15,9 @@ import {
   resolverImagemProduto,
 } from '../../utils/resolverImagemProduto';
 import { validarImagemProduto } from '../../utils/validacaoArquivos';
+import { PrecoPersonalizado } from './PrecoPersonalizado';
+import { EditorPrecosProduto } from './EditorPrecosProduto';
+import { formularioPrecos, validarPrecos } from '../../utils/precosPersonalizados';
 
 type ProdutoProps = ProdutoCatalogo & {
   limiteDestaquesAtingido?: boolean;
@@ -43,6 +46,8 @@ export function Produtos(props: ProdutoProps) {
   const atualizarApresentacao = useAtualizarApresentacaoProduto();
   const excluirProduto = useExcluirProduto();
   const [isEditing, setIsEditing] = useState(false);
+  const [precos, setPrecos] = useState(() => formularioPrecos(props));
+  const [erroPrecos, setErroPrecos] = useState('');
   const [nomeExibidoSite, setNomeExibidoSite] = useState(props.nomeExibidoSite);
   const [exibirNoSite, setExibirNoSite] = useState(
     produtoAdministrativo?.exibirNoSite ?? true
@@ -58,7 +63,7 @@ export function Produtos(props: ProdutoProps) {
   const destaqueOriginal = produtoAdministrativo?.destaqueNaHome ?? false;
   const disponivelParaDestaque =
     produtoAdministrativo?.disponivelUltimaImportacao ?? true;
-  const precoPromocao = props.emPromocao ? props.precoPromocao : null;
+  const precoPromocao = !props.usarPrecosPersonalizados && props.emPromocao ? props.precoPromocao : null;
   const emPromocao = precoPromocao != null;
   const bloquearNovoDestaque = !destaqueOriginal && (
     props.carregandoLimiteDestaques || props.limiteDestaquesAtingido
@@ -133,6 +138,8 @@ export function Produtos(props: ProdutoProps) {
   };
 
   const cancelar = () => {
+    setPrecos(formularioPrecos(props));
+    setErroPrecos('');
     setNomeExibidoSite(props.nomeExibidoSite);
     setExibirNoSite(produtoAdministrativo?.exibirNoSite ?? true);
     setDestaqueNaHome(produtoAdministrativo?.destaqueNaHome ?? false);
@@ -145,6 +152,9 @@ export function Produtos(props: ProdutoProps) {
 
   const salvar = () => {
     if (!produtoAdministrativo) return;
+    const erro = validarPrecos(precos);
+    setErroPrecos(erro ?? '');
+    if (erro) return;
     atualizarApresentacao.mutate(
       {
         codigoSantri: produtoAdministrativo.codigoSantri,
@@ -153,6 +163,7 @@ export function Produtos(props: ProdutoProps) {
         destaqueNaHome,
         imagem,
         imagemHover,
+        precos,
       },
       {
         onSuccess: () => {
@@ -247,7 +258,9 @@ export function Produtos(props: ProdutoProps) {
               <span>{produtoInterno.codigoSantri}</span>
             </li>
           )}
-          {produtoAdministrativo ? (
+          {props.usarPrecosPersonalizados ? (
+            <li className="produto-precos"><PrecoPersonalizado produto={props} /></li>
+          ) : produtoAdministrativo ? (
             <li className="produto-precos produto-precos--admin">
               <span>
                 <strong>Preço de venda:</strong>{' '}
@@ -299,6 +312,8 @@ export function Produtos(props: ProdutoProps) {
 
         {produtoAdministrativo && isEditing && (
           <div className="produto-admin-editor">
+            <EditorPrecosProduto value={precos} onChange={setPrecos} disabled={atualizarApresentacao.isPending} />
+            {erroPrecos && <p className="produto-admin-error" role="alert">{erroPrecos}</p>}
             <label className="produto-name-input">
               <span>Nome exibido no site</span>
               <input
@@ -408,7 +423,11 @@ export function Produtos(props: ProdutoProps) {
             <button
               className="btn btn-primary"
               type="button"
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                setPrecos(formularioPrecos(props));
+                setErroPrecos('');
+                setIsEditing(true);
+              }}
               disabled={excluirProduto.isPending}
             >
               <i className="bi bi-pencil-square me-1" />

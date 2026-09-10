@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,6 +29,7 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository
 import com.ecommerceproject.dubaimagazinesalvador.services.LimitadorOrigemLoginService;
 import com.ecommerceproject.dubaimagazinesalvador.services.LimitadorOrigemLoginService.EstadoLimite;
 import com.ecommerceproject.dubaimagazinesalvador.services.TentativasLoginService;
+import com.ecommerceproject.dubaimagazinesalvador.services.SessaoUsuarioService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -46,6 +48,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final TentativasLoginService tentativasLoginService;
     private final LimitadorOrigemLoginService limitadorOrigemLoginService;
+    private final SessaoUsuarioService sessaoUsuarioService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
@@ -54,7 +57,8 @@ public class AuthController {
             TokenService tokenService,
             PasswordEncoder passwordEncoder,
             TentativasLoginService tentativasLoginService,
-            LimitadorOrigemLoginService limitadorOrigemLoginService
+            LimitadorOrigemLoginService limitadorOrigemLoginService,
+            SessaoUsuarioService sessaoUsuarioService
     ) {
         this.authenticationManager = authenticationManager;
         this.administradorRepository = administradorRepository;
@@ -63,6 +67,7 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
         this.tentativasLoginService = tentativasLoginService;
         this.limitadorOrigemLoginService = limitadorOrigemLoginService;
+        this.sessaoUsuarioService = sessaoUsuarioService;
     }
 
     @PostMapping("/login")
@@ -111,6 +116,14 @@ public class AuthController {
     }
 
     public record LoginErroDTO(String erro) {
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal Usuario usuario) {
+        if (usuario != null) {
+            sessaoUsuarioService.revogarTodas(usuario.getId());
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/registerADM")

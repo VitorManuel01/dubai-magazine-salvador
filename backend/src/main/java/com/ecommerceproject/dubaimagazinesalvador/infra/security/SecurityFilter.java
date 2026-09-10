@@ -1,12 +1,13 @@
 package com.ecommerceproject.dubaimagazinesalvador.infra.security;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.http.MediaType;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Usuario;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
@@ -40,15 +41,17 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         String token = recoverToken(request);
         if (token != null) {
-            UUID usuarioId = tokenService.validateToken(token);
-            if (usuarioId == null) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token inválido ou expirado");
+            TokenService.TokenValidado tokenValidado = tokenService.validateTokenCompleto(token);
+            if (tokenValidado == null) {
+                responderNaoAutorizado(response);
                 return;
             }
 
-            Usuario usuario = usuarioRepository.findById(usuarioId).orElse(null);
-            if (usuario == null) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Usuário não encontrado");
+            Usuario usuario = usuarioRepository.findById(tokenValidado.usuarioId()).orElse(null);
+            if (usuario == null
+                    || !usuario.isEnabled()
+                    || usuario.getVersaoToken() != tokenValidado.versao()) {
+                responderNaoAutorizado(response);
                 return;
             }
 
@@ -70,5 +73,12 @@ public class SecurityFilter extends OncePerRequestFilter {
         }
         String token = authHeader.substring(7).trim();
         return token.isEmpty() ? null : token;
+    }
+
+    private void responderNaoAutorizado(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"erro\":\"Sessão inválida ou expirada.\"}");
     }
 }

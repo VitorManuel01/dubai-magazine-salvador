@@ -7,8 +7,6 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
@@ -36,22 +34,9 @@ public class ExclusaoProdutoService {
                         "Produto não encontrado: " + codigoSantri
                 ));
 
-        List<String> imagens = imagensDoProduto(produto);
         produtoRepository.delete(produto);
         produtoRepository.flush();
-
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            removerImagens(imagens);
-                        }
-                    }
-            );
-        } else {
-            removerImagens(imagens);
-        }
+        // A limpeza programada confirma todas as referências antes de remover fotos compartilhadas.
     }
 
     @Transactional
@@ -72,47 +57,9 @@ public class ExclusaoProdutoService {
             );
         }
 
-        List<List<String>> imagens = produtos.stream()
-                .map(this::imagensDoProduto)
-                .toList();
         produtoRepository.deleteAll(produtos);
         produtoRepository.flush();
-        agendarRemocaoImagens(imagens);
         return produtos.size();
-    }
-
-    private List<String> imagensDoProduto(Produto produto) {
-        List<String> imagens = produto.getUrlsImagens();
-        if (!imagens.isEmpty()) {
-            return imagens;
-        }
-        return java.util.stream.Stream.of(
-                        produto.getImagemUrl(),
-                        produto.getImagemHoverUrl()
-                )
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-    }
-
-    private void removerImagens(List<String> imagens) {
-        imagens.forEach(armazenamentoImagem::removerSeGerenciada);
-    }
-
-    private void agendarRemocaoImagens(List<List<String>> imagens) {
-        Runnable remover = () -> imagens.forEach(this::removerImagens);
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            remover.run();
-                        }
-                    }
-            );
-        } else {
-            remover.run();
-        }
     }
 
     private Set<String> normalizarCodigos(List<String> codigosInformados) {

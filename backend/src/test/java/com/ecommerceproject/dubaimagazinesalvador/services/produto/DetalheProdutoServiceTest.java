@@ -89,7 +89,10 @@ class DetalheProdutoServiceTest {
     @Test
     void deveBloquearNonaFotoAntesDeGravarOutroArquivo() {
         produto.substituirImagens(java.util.stream.IntStream.rangeClosed(1, 8)
-                .mapToObj(indice -> "/uploads/produtos/" + indice + ".webp")
+                .mapToObj(indice -> String.format(
+                        "/uploads/produtos/00000000-0000-0000-0000-%012d.webp",
+                        indice
+                ))
                 .toList());
         when(produtoRepository.findById("100")).thenReturn(Optional.of(produto));
         MockMultipartFile arquivo = new MockMultipartFile(

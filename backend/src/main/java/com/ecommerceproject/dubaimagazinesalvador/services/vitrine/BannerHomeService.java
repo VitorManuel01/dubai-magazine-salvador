@@ -44,14 +44,13 @@ public class BannerHomeService {
                         "Banner não encontrado."
                 ));
 
-        String imagemAnterior = banner.getImagemUrl();
         String caminhoArmazenado = armazenamentoImagem.salvar(imagem);
         String novaImagem = ImagemProdutoCatalogo.criarUrlPublica(caminhoArmazenado);
 
         try {
             banner.atualizarImagem(novaImagem);
             BannerHome salvo = repository.saveAndFlush(banner);
-            armazenamentoImagem.removerSeGerenciada(imagemAnterior);
+            // Fotos anteriores podem pertencer também a produtos; a limpeza órfã verifica isso.
             return new BannerHomeResponseDTO(salvo);
         } catch (RuntimeException e) {
             armazenamentoImagem.removerSeGerenciada(novaImagem);

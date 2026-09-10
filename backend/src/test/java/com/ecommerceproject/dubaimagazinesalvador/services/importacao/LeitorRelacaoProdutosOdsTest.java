@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -220,6 +221,61 @@ class LeitorRelacaoProdutosOdsTest {
         );
 
         assertTrue(exception.getMessage().contains("proteções obrigatórias"));
+    }
+
+    @Test
+    void deveFalharFechadoQuandoParserIgnorarLimitesDeRecursos() {
+        XMLInputFactory factory = mock(XMLInputFactory.class);
+        when(factory.getProperty(XMLInputFactory.SUPPORT_DTD)).thenReturn(Boolean.FALSE);
+        when(factory.getProperty("javax.xml.stream.isSupportingExternalEntities")).thenReturn(Boolean.FALSE);
+        when(factory.getProperty(XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES)).thenReturn(Boolean.FALSE);
+        when(factory.getProperty(XMLInputFactory.IS_COALESCING)).thenReturn(Boolean.FALSE);
+        when(factory.getProperty("jdk.xml.maxElementDepth")).thenReturn("0");
+
+        ImportacaoOdsException erro = assertThrows(ImportacaoOdsException.class,
+                () -> leitor.configurarXmlSeguro(factory));
+
+        assertTrue(erro.getMessage().contains("limites obrigatórios"));
+    }
+
+    @Test
+    void deveRejeitarProfundidadeXmlExcessivaMesmoForaDeCelulas() throws Exception {
+        String xml = "<root>" + "<nivel>".repeat(65) + "</nivel>".repeat(65) + "</root>";
+
+        assertThrows(ImportacaoOdsException.class,
+                () -> leitor.ler(new ByteArrayInputStream(empacotarOds(xml.getBytes(StandardCharsets.UTF_8)))));
+    }
+
+    @Test
+    void deveRejeitarAtributoXmlExcessivoAntesDeProcessarProdutos() throws Exception {
+        String xml = "<root atributo=\"" + "A".repeat(16_385) + "\"/>";
+
+        ImportacaoOdsException erro = assertThrows(ImportacaoOdsException.class,
+                () -> leitor.ler(new ByteArrayInputStream(empacotarOds(xml.getBytes(StandardCharsets.UTF_8)))));
+
+        assertTrue(erro.getMessage().contains("atributo XML"));
+    }
+
+    @Test
+    void deveRejeitarExpoentesENumerosExcessivosAntesDeEntregarEstoque() throws Exception {
+        for (String quantidade : List.of("1E+2147483647", "1E-2147483647", "999999999999999999999999999999999999")) {
+            List<EstoqueProdutoImportacaoDTO> registros = new ArrayList<>();
+            String xml = """
+                    <office:document-content
+                        xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                        xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+                        xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+                      <office:body><office:spreadsheet><table:table>
+                        %s%s
+                      </table:table></office:spreadsheet></office:body>
+                    </office:document-content>
+                    """.formatted(linha(List.of("Produto", "Quantidade")), linha(List.of("123", quantidade)));
+
+            assertThrows(ImportacaoOdsException.class,
+                    () -> leitor.lerInventario(new ByteArrayInputStream(
+                            empacotarOds(xml.getBytes(StandardCharsets.UTF_8))), registros::add));
+            assertTrue(registros.isEmpty());
+        }
     }
 
     @Test

@@ -97,7 +97,9 @@ class ImportacaoProdutosServiceTest {
         jdbcTemplate.update(
                 """
                 UPDATE produtos
-                SET imagem_url = ?, exibir_no_site = TRUE, destaque_na_home = TRUE
+                SET imagem_url = ?, exibir_no_site = TRUE, destaque_na_home = TRUE,
+                    usar_precos_personalizados = TRUE, preco_a_vista = 4.50,
+                    preco_cartao_parc = 6.00, max_parcelamento = 3
                 WHERE codigo_santri = ?
                 """,
                 "/imagens/giz.webp",
@@ -108,6 +110,10 @@ class ImportacaoProdutosServiceTest {
         ImportacaoProdutosResponseDTO segundaImportacao = service.importar(arquivo);
 
         assertEquals(1, segundaImportacao.produtosAtualizados());
+        assertTrue(jdbcTemplate.queryForObject("SELECT usar_precos_personalizados FROM produtos WHERE codigo_santri = '2672'", Boolean.class));
+        assertEquals(new java.math.BigDecimal("4.50"), jdbcTemplate.queryForObject("SELECT preco_a_vista FROM produtos WHERE codigo_santri = '2672'", java.math.BigDecimal.class));
+        assertEquals(new java.math.BigDecimal("6.00"), jdbcTemplate.queryForObject("SELECT preco_cartao_parc FROM produtos WHERE codigo_santri = '2672'", java.math.BigDecimal.class));
+        assertEquals(3, jdbcTemplate.queryForObject("SELECT max_parcelamento FROM produtos WHERE codigo_santri = '2672'", Integer.class));
         assertEquals(1, segundaImportacao.categoriasAtualizadas());
         assertEquals(new BigDecimal("6.99"), jdbcTemplate.queryForObject(
                 "SELECT preco_sem_ipi FROM produtos WHERE codigo_santri = '2672'",

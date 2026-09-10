@@ -39,6 +39,7 @@ public class VitrineHomeService {
     @Transactional(readOnly = true)
     public List<VitrineHomeResponseDTO> listarPublicas() {
         return vitrineRepository.findByAtivoTrueOrderByOrdemAscIdAsc().stream()
+                .filter(vitrine -> vitrine.getCategoria().podeExibirNoCatalogoPublico())
                 .map(this::montarResposta)
                 .toList();
     }

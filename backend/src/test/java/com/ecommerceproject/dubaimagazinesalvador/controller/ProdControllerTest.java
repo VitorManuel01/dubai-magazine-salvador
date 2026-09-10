@@ -40,6 +40,7 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.PrecosPersonalizadosRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.infra.security.TokenService;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
@@ -57,7 +58,7 @@ import jakarta.persistence.EntityManager;
 @ContextConfiguration(classes = {TestSecurityConfig.class, ProdController.class})
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-class ProdControllerTest {
+class ProdControllerTest extends ProtecoesWebTestSupport {
 
     private static final String CATEGORIA_CODIGO = "001.003.0006.0002";
 
@@ -372,7 +373,8 @@ class ProdControllerTest {
                 true,
                 true,
                 null,
-                null
+                null,
+                new PrecosPersonalizadosRequestDTO(null, null, null, null)
         ))
                 .thenReturn(new ProdutoResponseDTO(produto));
 
@@ -394,8 +396,41 @@ class ProdControllerTest {
                 true,
                 true,
                 null,
-                null
+                null,
+                new PrecosPersonalizadosRequestDTO(null, null, null, null)
         );
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deveReceberPrecosPersonalizadosNoMesmoFormulario() throws Exception {
+        var precos = new PrecosPersonalizadosRequestDTO(true, new BigDecimal("100.00"), new BigDecimal("120.00"), 10);
+        var produto = criarProduto("2.672", "Produto");
+        precos.aplicar(produto);
+        when(apresentacaoProdutoService.atualizar("2.672", null, true, false, null, null, precos))
+                .thenReturn(new ProdutoResponseDTO(produto));
+        mockMvc.perform(multipart("/produto/2.672/apresentacao")
+                .param("exibirNoSite", "true").param("destaqueNaHome", "false")
+                .param("usarPrecosPersonalizados", "true").param("precoAVista", "100.00")
+                .param("precoCartaoParc", "120.00").param("maxParcelamento", "10")
+                .with(request -> { request.setMethod("PUT"); return request; }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usarPrecosPersonalizados").value(true))
+                .andExpect(jsonPath("$.precoAVista").value(100))
+                .andExpect(jsonPath("$.precoCartaoParc").value(120))
+                .andExpect(jsonPath("$.maxParcelamento").value(10));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deveRejeitarPrecosInvalidosAntesDeChamarServico() throws Exception {
+        mockMvc.perform(multipart("/produto/2.672/apresentacao")
+                .param("exibirNoSite", "true").param("destaqueNaHome", "false")
+                .param("usarPrecosPersonalizados", "true").param("precoAVista", "-1")
+                .param("precoCartaoParc", "120.001").param("maxParcelamento", "37")
+                .with(request -> { request.setMethod("PUT"); return request; }))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(apresentacaoProdutoService);
     }
 
     private ProdutoRequestDTO criarRequest(String codigoSantri, String descricao) {
@@ -411,7 +446,7 @@ class ProdControllerTest {
                 new BigDecimal("9.99"),
                 BigDecimal.ZERO,
                 CATEGORIA_CODIGO,
-                "https://exemplo.com/imagem.jpg",
+                "/catalogo/imagens/11111111-1111-1111-1111-111111111111.jpg",
                 true
         );
     }

@@ -18,11 +18,27 @@ public final class ImagemProdutoCatalogo {
         if (imagemUrl == null || imagemUrl.isBlank()) {
             return null;
         }
+        if (imagemUrl.startsWith("/catalogo/imagens/")) {
+            Matcher publica = IDENTIFICADOR_PUBLICO.matcher(imagemUrl);
+            return publica.find() ? "/catalogo/imagens/" + publica.group(1) : null;
+        }
         if (!imagemUrl.startsWith(PREFIXO_INTERNO)) {
-            return imagemUrl;
+            return null;
         }
 
         Matcher matcher = IDENTIFICADOR_PUBLICO.matcher(imagemUrl);
         return matcher.find() ? "/catalogo/imagens/" + matcher.group(1) : null;
+    }
+
+    public static String normalizarParaPersistencia(String imagemUrl) {
+        String publica = criarUrlPublica(imagemUrl == null ? null : imagemUrl.trim());
+        if (publica == null) {
+            throw new IllegalArgumentException("A foto deve ter sido enviada por este sistema.");
+        }
+        Matcher matcher = IDENTIFICADOR_PUBLICO.matcher(publica);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("A URL da foto é inválida.");
+        }
+        return PREFIXO_INTERNO + matcher.group(1).toLowerCase(java.util.Locale.ROOT);
     }
 }

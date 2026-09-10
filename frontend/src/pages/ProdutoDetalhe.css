@@ -234,6 +234,15 @@
   font-style: italic;
 }
 
+.descricao-tamanho--12 { font-size: 12px; }
+.descricao-tamanho--14 { font-size: 14px; }
+.descricao-tamanho--16 { font-size: 16px; }
+.descricao-tamanho--18 { font-size: 18px; }
+.descricao-tamanho--20 { font-size: 20px; }
+.descricao-tamanho--24 { font-size: 24px; }
+.descricao-tamanho--28 { font-size: 28px; }
+.descricao-tamanho--32 { font-size: 32px; }
+
 .product-detail-admin-gallery > div:first-child span {
   color: #3972c5;
   font-size: 0.72rem;

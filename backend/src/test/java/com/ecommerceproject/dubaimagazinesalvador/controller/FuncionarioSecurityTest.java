@@ -10,8 +10,13 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Funcionario;
@@ -33,7 +39,8 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository
 
 @WebMvcTest(FunController.class)
 @Import({SecurityConfigurations.class, SecurityFilter.class})
-class FuncionarioSecurityTest {
+@ActiveProfiles("test")
+class FuncionarioSecurityTest extends ProtecoesWebTestSupport {
 
     private static final String FUNCIONARIO_VALIDO = """
             {
@@ -71,7 +78,7 @@ class FuncionarioSecurityTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(FUNCIONARIO_VALIDO))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -100,6 +107,11 @@ class FuncionarioSecurityTest {
                         .content(FUNCIONARIO_VALIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$", not(hasKey("senha"))))
+                .andExpect(jsonPath("$", not(hasKey("CPF"))))
+                .andExpect(jsonPath("$", not(hasKey("dataNascimento"))))
+                .andExpect(jsonPath("$", not(hasKey("CEP"))))
+                .andExpect(jsonPath("$", not(hasKey("bairro"))))
+                .andExpect(jsonPath("$", not(hasKey("telefone"))))
                 .andExpect(jsonPath("$.funcao").value("funcionario"));
 
         ArgumentCaptor<Funcionario> captor = ArgumentCaptor.forClass(Funcionario.class);
@@ -134,5 +146,73 @@ class FuncionarioSecurityTest {
         mockMvc.perform(get("/funcionario")
                         .with(user("funcionario").roles("FUNCIONARIO")))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void administradorListaSomenteResumoDosFuncionarios() throws Exception {
+        UUID id = UUID.randomUUID();
+        Funcionario funcionario = funcionario(id, true);
+        when(funcionarioRepository.findAll()).thenReturn(List.of(funcionario));
+
+        mockMvc.perform(get("/funcionario")
+                        .with(user("administrador").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(id.toString()))
+                .andExpect(jsonPath("$[0].codigoSantri").value("FUN-001"))
+                .andExpect(jsonPath("$[0].nomeFuncionario").value("Funcionário Teste"))
+                .andExpect(jsonPath("$[0].funcao").value("funcionario"))
+                .andExpect(jsonPath("$[0].ativo").value(true))
+                .andExpect(jsonPath("$[0]", not(hasKey("CPF"))))
+                .andExpect(jsonPath("$[0]", not(hasKey("sexo"))))
+                .andExpect(jsonPath("$[0]", not(hasKey("dataNascimento"))))
+                .andExpect(jsonPath("$[0]", not(hasKey("CEP"))))
+                .andExpect(jsonPath("$[0]", not(hasKey("bairro"))))
+                .andExpect(jsonPath("$[0]", not(hasKey("telefone"))));
+    }
+
+    @Test
+    void administradorDesativaFuncionarioERevogaTokensEmitidos() throws Exception {
+        UUID id = UUID.randomUUID();
+        Funcionario funcionario = funcionario(id, true);
+        when(usuarioRepository.buscarPorIdParaAtualizacao(id)).thenReturn(Optional.of(funcionario));
+        when(funcionarioRepository.saveAndFlush(funcionario)).thenReturn(funcionario);
+
+        mockMvc.perform(put("/funcionario/{id}/status", id)
+                        .with(user("administrador").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ativo\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.ativo").value(false))
+                .andExpect(jsonPath("$", not(hasKey("CPF"))))
+                .andExpect(jsonPath("$", not(hasKey("dataNascimento"))))
+                .andExpect(jsonPath("$", not(hasKey("telefone"))));
+
+        org.junit.jupiter.api.Assertions.assertFalse(funcionario.isAtivo());
+        org.junit.jupiter.api.Assertions.assertEquals(1, funcionario.getVersaoToken());
+        verify(funcionarioRepository).saveAndFlush(funcionario);
+    }
+
+    @Test
+    void funcionarioNaoPodeAlterarStatusDeOutroFuncionario() throws Exception {
+        mockMvc.perform(put("/funcionario/{id}/status", UUID.randomUUID())
+                        .with(user("funcionario").roles("FUNCIONARIO"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ativo\":false}"))
+                .andExpect(status().isForbidden());
+
+        verify(funcionarioRepository, never()).saveAndFlush(any());
+    }
+
+    private Funcionario funcionario(UUID id, boolean ativo) {
+        Funcionario funcionario = new Funcionario();
+        funcionario.setId(id);
+        funcionario.setCodigoSantri("FUN-001");
+        funcionario.setNomeFuncionario("Funcionário Teste");
+        funcionario.setFuncao(Role.ROLE_FUNCIONARIO);
+        funcionario.setAtivo(ativo);
+        return funcionario;
     }
 }

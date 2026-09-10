@@ -1,3 +1,4 @@
+import { PrecoPersonalizado } from '../components/produtos/PrecoPersonalizado';
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDadosProdutos } from '../hooks/useDadosProdutos';
@@ -27,17 +28,17 @@ const BANNERS_PADRAO: PromoSlide[] = [
   {
     posicao: 1,
     title: 'Banner promocional 1',
-    image: 'https://placehold.co/1366x450?text=Banner+1&font=montserrat',
+    image: '/assets/banners/banner-placeholder.svg',
   },
   {
     posicao: 2,
     title: 'Banner promocional 2',
-    image: 'https://placehold.co/1366x450?text=Banner+2&font=montserrat',
+    image: '/assets/banners/banner-placeholder.svg',
   },
   {
     posicao: 3,
     title: 'Banner promocional 3',
-    image: 'https://placehold.co/1366x450?text=Banner+3&font=montserrat',
+    image: '/assets/banners/banner-placeholder.svg',
   },
 ];
 
@@ -335,7 +336,8 @@ const Home: React.FC = () => {
                   />
                   <div>
                     <h2>{produtoVitrine.nomeExibidoSite}</h2>
-                    <p>R$ {produtoVitrine.precoComIpi.toFixed(2)}</p>
+                    {produtoVitrine.usarPrecosPersonalizados ? <PrecoPersonalizado produto={produtoVitrine} />
+                      : <p>R$ {produtoVitrine.precoComIpi.toFixed(2)}</p>}
                   </div>
                 </article>
               </div>
@@ -383,7 +385,8 @@ const Home: React.FC = () => {
               />
               <div className="mini-product-card__body">
                 <h3>{produto.nomeExibidoSite}</h3>
-                <p>R$ {produto.precoComIpi.toFixed(2)}</p>
+                {produto.usarPrecosPersonalizados ? <PrecoPersonalizado produto={produto} />
+                  : <p>R$ {produto.precoComIpi.toFixed(2)}</p>}
               </div>
             </article>
           ))}

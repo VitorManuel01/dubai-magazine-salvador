@@ -1,4 +1,6 @@
-export interface ProdutoVitrineLoja {
+import { PrecosPersonalizados } from './PrecosPersonalizados';
+
+export interface ProdutoVitrineLoja extends PrecosPersonalizados {
   codigoSantri: string;
   nomeExibidoSite: string;
   marca: string | null;

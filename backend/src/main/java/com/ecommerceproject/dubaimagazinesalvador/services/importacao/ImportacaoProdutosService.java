@@ -86,11 +86,12 @@ public class ImportacaoProdutosService {
                 disponivel_ultima_importacao,
                 ultima_importacao_em,
                 em_promocao,
-                especial
+                especial,
+                usar_precos_personalizados
             ) VALUES (
                 ?, UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                FALSE, FALSE, TRUE, ?, FALSE, FALSE
+                FALSE, FALSE, TRUE, ?, FALSE, FALSE, FALSE
             )
             ON DUPLICATE KEY UPDATE
                 nome_exibido_site = CASE

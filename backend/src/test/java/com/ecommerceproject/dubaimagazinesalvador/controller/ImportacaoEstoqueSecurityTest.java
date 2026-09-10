@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -33,7 +34,8 @@ import com.ecommerceproject.dubaimagazinesalvador.services.importacao.Importacao
         SecurityFilter.class,
         ControleImportacaoProdutosService.class
 })
-class ImportacaoEstoqueSecurityTest {
+@ActiveProfiles("test")
+class ImportacaoEstoqueSecurityTest extends ProtecoesWebTestSupport {
 
     @Autowired
     private MockMvc mockMvc;
@@ -68,7 +70,7 @@ class ImportacaoEstoqueSecurityTest {
 
         mockMvc.perform(multipart("/admin/importacoes/estoque")
                         .file(arquivo()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(multipart("/admin/importacoes/estoque")
                         .file(arquivo())
                         .with(user("funcionario").roles("FUNCIONARIO")))

@@ -20,6 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.VitrineLojaResponseDTO;
@@ -31,7 +32,8 @@ import com.ecommerceproject.dubaimagazinesalvador.services.vitrine.VitrineLojaSe
 
 @WebMvcTest(VitrineLojaController.class)
 @Import({SecurityConfigurations.class, SecurityFilter.class})
-class VitrineLojaSecurityTest {
+@ActiveProfiles("test")
+class VitrineLojaSecurityTest extends ProtecoesWebTestSupport {
 
     @Autowired
     private MockMvc mockMvc;

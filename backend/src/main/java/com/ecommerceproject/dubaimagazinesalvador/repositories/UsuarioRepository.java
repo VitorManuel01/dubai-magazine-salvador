@@ -21,6 +21,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     boolean existsByCodigoSantriIgnoreCase(String codigoSantri);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT usuario FROM Usuario usuario WHERE usuario.id = :id")
+    Optional<Usuario> buscarPorIdParaAtualizacao(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT usuario
             FROM Usuario usuario

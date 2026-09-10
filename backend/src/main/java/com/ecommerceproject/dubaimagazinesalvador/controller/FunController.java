@@ -7,8 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.Funcionario;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.FuncionarioRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.FuncionarioResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.AtualizacaoStatusUsuarioDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.FuncionarioRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.UsuarioRepository;
 
@@ -69,5 +73,26 @@ public class FunController {
         return repository.findAll().stream()
                 .map(FuncionarioResponseDTO::new)
                 .toList();
+    }
+
+    @PutMapping("/{id}/status")
+    @Transactional
+    public FuncionarioResponseDTO atualizarStatus(
+            @PathVariable java.util.UUID id,
+            @Valid @RequestBody AtualizacaoStatusUsuarioDTO dados
+    ) {
+        Funcionario funcionario = usuarioRepository.buscarPorIdParaAtualizacao(id)
+                .filter(Funcionario.class::isInstance)
+                .map(Funcionario.class::cast)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Funcionário não encontrado"
+                ));
+        boolean novoStatus = Boolean.TRUE.equals(dados.ativo());
+        if (funcionario.isAtivo() != novoStatus) {
+            funcionario.setAtivo(novoStatus);
+            funcionario.invalidarTokensEmitidos();
+        }
+        return new FuncionarioResponseDTO(repository.saveAndFlush(funcionario));
     }
 }

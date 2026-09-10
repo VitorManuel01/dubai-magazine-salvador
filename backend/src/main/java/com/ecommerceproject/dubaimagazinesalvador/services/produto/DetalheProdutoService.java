@@ -28,6 +28,9 @@ public class DetalheProdutoService {
     private static final Pattern ABERTURA_TAMANHO = Pattern.compile(
             "\\[tamanho=(\\d{1,2})]"
     );
+    private static final Pattern ID_PUBLICO = Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"
+    );
 
     private final ProdutoRepository produtoRepository;
     private final ArmazenamentoImagemProdutoService armazenamentoImagem;
@@ -42,7 +45,9 @@ public class DetalheProdutoService {
 
     @Transactional(readOnly = true)
     public ProdutoDetalhePublicoDTO buscarPublico(String idPublico) {
-        Produto produto = produtoRepository.findDetalhePublicoByIdPublico(idPublico)
+        Produto produto = produtoRepository.findDetalhePublicoByIdPublico(
+                        normalizarIdPublico(idPublico)
+                )
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Produto não encontrado no catálogo."
@@ -72,26 +77,48 @@ public class DetalheProdutoService {
         String url = armazenamentoImagem.salvar(arquivo);
         try {
             produto.adicionarImagem(url);
-            return new ProdutoResponseDTO(produtoRepository.saveAndFlush(produto));
+            ProdutoResponseDTO resposta = new ProdutoResponseDTO(
+                    produtoRepository.saveAndFlush(produto)
+            );
+            removerSeRollback(url);
+            return resposta;
         } catch (IllegalArgumentException | IllegalStateException e) {
             armazenamentoImagem.removerSeGerenciada(url);
             throw erro(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (RuntimeException e) {
+            armazenamentoImagem.removerSeGerenciada(url);
+            throw e;
         }
+    }
+
+    private void removerSeRollback(String url) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                            armazenamentoImagem.removerSeGerenciada(url);
+                        }
+                    }
+                }
+        );
     }
 
     @Transactional
     public ProdutoResponseDTO removerImagem(String codigoSantri, Long imagemId) {
         Produto produto = buscarPorCodigo(codigoSantri);
-        String url;
         try {
-            url = produto.removerImagem(imagemId);
+            produto.removerImagem(imagemId);
         } catch (IllegalArgumentException e) {
             throw erro(HttpStatus.NOT_FOUND, e.getMessage());
         }
         ProdutoResponseDTO resposta = new ProdutoResponseDTO(
                 produtoRepository.saveAndFlush(produto)
         );
-        removerDepoisDoCommit(url);
+        // A foto física só é removida pela limpeza órfã após conferir as demais referências.
         return resposta;
     }
 
@@ -118,8 +145,15 @@ public class DetalheProdutoService {
     }
 
     private Produto buscarPorIdPublico(String idPublico) {
-        return produtoRepository.findByIdPublico(idPublico)
+        return produtoRepository.findByIdPublico(normalizarIdPublico(idPublico))
                 .orElseThrow(() -> erro(HttpStatus.NOT_FOUND, "Produto não encontrado."));
+    }
+
+    private String normalizarIdPublico(String idPublico) {
+        if (idPublico == null || !ID_PUBLICO.matcher(idPublico).matches()) {
+            throw erro(HttpStatus.NOT_FOUND, "Produto não encontrado.");
+        }
+        return idPublico.toLowerCase(java.util.Locale.ROOT);
     }
 
     private String normalizarDescricao(String descricao) {
@@ -171,21 +205,6 @@ public class DetalheProdutoService {
             inicio += trecho.length();
         }
         return total;
-    }
-
-    private void removerDepoisDoCommit(String url) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            armazenamentoImagem.removerSeGerenciada(url);
-                        }
-                    }
-            );
-            return;
-        }
-        armazenamentoImagem.removerSeGerenciada(url);
     }
 
     private ResponseStatusException erro(HttpStatus status, String mensagem) {

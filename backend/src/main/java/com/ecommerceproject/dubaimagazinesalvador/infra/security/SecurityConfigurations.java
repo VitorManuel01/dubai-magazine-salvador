@@ -1,12 +1,16 @@
 package com.ecommerceproject.dubaimagazinesalvador.infra.security;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,10 +21,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +47,21 @@ public class SecurityConfigurations {
     }
 
     @Bean
+    public FilterRegistrationBean<SecurityFilter> registroServletSecurityFilter() {
+        FilterRegistrationBean<SecurityFilter> registro = new FilterRegistrationBean<>(securityFilter);
+        registro.setEnabled(false);
+        return registro;
+    }
+
+    @Bean
+    public FilterRegistrationBean<HttpsObrigatorioFilter> registroServletHttpsFilter() {
+        FilterRegistrationBean<HttpsObrigatorioFilter> registro =
+                new FilterRegistrationBean<>(httpsObrigatorioFilter);
+        registro.setEnabled(false);
+        return registro;
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity httpSecurity,
             CorsConfigurationSource corsConfigurationSource
@@ -46,7 +69,17 @@ public class SecurityConfigurations {
         httpSecurity
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, exception) ->
+                                responderErro(response, 401, "Autenticação necessária."))
+                        .accessDeniedHandler((request, response, exception) ->
+                                responderErro(response, 403, "Acesso negado."))
+                )
                 .authorizeHttpRequests(authorize -> authorize
+                        // Só o despacho interno de erro pode renderizar /error sem nova autenticação.
+                        // Uma chamada HTTP direta a /error continua protegida por anyRequest().
+                        .requestMatchers(request -> request.getDispatcherType() == DispatcherType.ERROR
+                                && "/error".equals(request.getServletPath())).permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/registerADM").hasRole("ADMIN")
                         .requestMatchers("/cliente", "/cliente/**").denyAll()
@@ -78,16 +111,25 @@ public class SecurityConfigurations {
                         .requestMatchers(HttpMethod.GET, "/banners-home").permitAll()
                         .requestMatchers(HttpMethod.GET, "/depoimentos-home").permitAll()
                         .requestMatchers(HttpMethod.GET, "/catalogo/imagens/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/uploads/produtos/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+                        ))
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy
+                                        .STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+                        ))
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
                                 .preload(true)
                                 .maxAgeInSeconds(31_536_000)
                         )
+                        .permissionsPolicy(permissions -> permissions.policy(
+                                "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+                        ))
                 )
                 .addFilterBefore(httpsObrigatorioFilter, SecurityContextHolderFilter.class)
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
@@ -118,6 +160,17 @@ public class SecurityConfigurations {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private void responderErro(
+            HttpServletResponse response,
+            int status,
+            String mensagem
+    ) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"erro\":\"" + mensagem + "\"}");
     }
 
     @Bean

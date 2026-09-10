@@ -8,14 +8,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doReturn;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -93,7 +98,7 @@ class VitrineLojaServiceTest {
                 scooterAzul,
                 "Azul",
                 0,
-                List.of("/imagens/scooter-azul.webp")
+                List.of("/catalogo/imagens/11111111-1111-1111-1111-111111111111.webp")
         );
         opcao.adicionarSecao(new SecaoVitrineLoja("Motor", "500 W", 0));
         vitrine.adicionarOpcao(opcao);
@@ -106,6 +111,46 @@ class VitrineLojaServiceTest {
         assertEquals("855437",
                 resposta.getContent().getFirst().opcoes().getFirst().produto().codigoSantri());
         verify(vitrineRepository).pesquisar(eq(true), eq("scooter"), any(Pageable.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void deveListarVitrineComFotosLegadasInvalidasSemErro(boolean somenteAtivas) {
+        Produto produtoLegado = spy(scooterAzul);
+        List<String> urls = Arrays.asList(
+                "/uploads/produtos/11111111-1111-1111-1111-111111111111.webp",
+                "https://externo.example/foto.jpg", null, "", "/uploads/produtos/antiga.jpg",
+                "/catalogo/imagens/22222222-2222-2222-2222-222222222222.png");
+        doReturn(urls).when(produtoLegado).getUrlsImagens();
+        VitrineLoja vitrine = new VitrineLoja(true);
+        vitrine.adicionarOpcao(new ProdutoVitrineLoja(produtoLegado, "Azul", 0, List.of()));
+        when(vitrineRepository.pesquisar(eq(somenteAtivas), eq("scooter"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(vitrine)));
+
+        var resposta = service.pesquisar("scooter", 0, 12, somenteAtivas);
+
+        assertEquals(List.of(
+                "/catalogo/imagens/11111111-1111-1111-1111-111111111111.webp",
+                "/catalogo/imagens/22222222-2222-2222-2222-222222222222.png"),
+                resposta.getContent().getFirst().opcoes().getFirst().imagens());
+        assertEquals(6, urls.size()); // A leitura não remove fotos do cadastro.
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void deveListarVitrineMesmoQuandoTodasAsFotosSaoInvalidas(boolean somenteAtivas) {
+        Produto produtoLegado = spy(scooterAzul);
+        doReturn(Arrays.asList(null, "", "/uploads/produtos/antiga.jpg"))
+                .when(produtoLegado).getUrlsImagens();
+        VitrineLoja vitrine = new VitrineLoja(true);
+        vitrine.adicionarOpcao(new ProdutoVitrineLoja(produtoLegado, "Azul", 0, List.of()));
+        when(vitrineRepository.pesquisar(eq(somenteAtivas), eq("scooter"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(vitrine)));
+
+        var resposta = service.pesquisar("scooter", 0, 12, somenteAtivas);
+
+        assertTrue(resposta.getContent().getFirst().opcoes().getFirst().imagens().isEmpty());
+        assertEquals("855437", resposta.getContent().getFirst().opcoes().getFirst().produto().codigoSantri());
     }
 
     @Test
@@ -179,8 +224,8 @@ class VitrineLojaServiceTest {
         return new VitrineLojaRequestDTO(
                 true,
                 List.of(
-                        opcao("855437", "Azul", "/imagens/scooter-azul.webp"),
-                        opcao("855438", "Preta", "/imagens/scooter-preta.webp")
+                        opcao("855437", "Azul", "/catalogo/imagens/11111111-1111-1111-1111-111111111111.webp"),
+                        opcao("855438", "Preta", "/catalogo/imagens/22222222-2222-2222-2222-222222222222.webp")
                 )
         );
     }
@@ -194,7 +239,10 @@ class VitrineLojaServiceTest {
                 codigo,
                 rotulo,
                 0,
-                List.of(imagem, imagem + "?detalhe=1"),
+                List.of(
+                        imagem,
+                        "/catalogo/imagens/33333333-3333-4333-8333-333333333333.webp"
+                ),
                 List.of(new SecaoVitrineLojaRequestDTO(
                         "Motor",
                         "Motor elétrico de 500 W.",

@@ -50,6 +50,7 @@ nesses arquivos.
 ```powershell
 npm run dev
 npm run lint
+npm run test:security
 npm run build
 npm run build:preproduction
 npm run build:production
@@ -73,6 +74,10 @@ X-Forwarded-Port: 443
 
 Em produção real, Nginx ou o proxy da hospedagem assume esse papel.
 
+O preview remove cabeçalhos `Forwarded`/`X-Forwarded-*` fornecidos pelo navegador e reconstrói
+protocolo, porta e IP. `CF-Connecting-IP` só é considerado quando a conexão vem do túnel local e
+contém um IP válido. No backend, `RemoteIpValve` confia apenas no proxy conectado por loopback.
+
 ## Estrutura
 
 ```text
@@ -89,18 +94,34 @@ src/
 
 ## Autenticação
 
-`AuthProvider` lê o JWT do `localStorage`, valida sua expiração e disponibiliza:
+`AuthProvider` lê o JWT do `sessionStorage`, verifica sua expiração para controlar a interface e
+disponibiliza:
 
 - `isAuthenticated`;
 - `funcao`;
 - `login(token)`;
 - `logout()`.
 
-O interceptor do Axios adiciona o Bearer token e mantém cookies desativados. No login,
-`obterIdDispositivo()` cria um UUID persistente e envia `X-Device-Id`.
+O interceptor do Axios adiciona o Bearer token somente à origem e ao prefixo da API configurada;
+endereços externos não recebem o token. Cookies ficam desativados. Respostas `401` da sessão
+atual limpam o estado local. O logout chama `/auth/logout` para revogar os tokens da conta e limpa o
+estado local mesmo se a rede falhar; nesse caso, a revogação no servidor não pode ser confirmada.
+A aba mantém a sessão enquanto estiver aberta; sua restauração pode depender do navegador.
+
+Login, logout, expiração e encerramento por `401` limpam o cache do TanStack Query, evitando
+reaproveitar consultas de uma conta anterior. A inicialização remove tokens legados do
+`localStorage` e a expiração encerra a sessão local por temporizador.
+
+No login, `obterIdDispositivo()` cria um UUID persistente e envia `X-Device-Id`. Esse identificador
+auxilia o bloqueio de tentativas, mas pode ser apagado pelo usuário e não comprova identidade.
 
 `RotaAdmin` e `RotaVitrineInterna` controlam os redirecionamentos visuais. A autorização real é
 repetida no backend.
+
+Em `/admin/funcionarios`, o administrador cadastra e lista funcionários e pode ativar/desativar
+o acesso. A lista recebe somente identificador, código Santri, nome, função e estado; CPF e demais
+dados cadastrais não são devolvidos. A senha de cadastro exige 12 a 72 caracteres, respeitando
+também o máximo de 72 bytes UTF-8 validado pelo backend.
 
 ## Catálogo
 
@@ -119,6 +140,11 @@ Ela reúne a galeria completa, preços, disponibilidade e uma única área de de
 O filtro **Preço no catálogo** envia `precoMinimo` e `precoMaximo` ao backend. A faixa é aplicada
 antes da paginação, de modo que a quantidade total e todas as páginas sejam recalculadas com os
 produtos filtrados. Ao aplicar ou limpar a faixa, o catálogo retorna à primeira página.
+
+A busca pública aceita de 2 a 100 caracteres; administradores podem usar um caractere para
+consultas internas. O backend rejeita caracteres de controle/invisíveis, trata `%` e `_` como
+texto literal e limita página e tamanho. Respostas `429` indicam que o limite de requisições
+foi alcançado e incluem `Retry-After`; o cliente deve aguardar antes de tentar novamente.
 
 A categoria interna Uso e Consumo é excluída pela consulta pública do backend antes da paginação.
 `src/utils/categoriasCatalogo.ts` também impede que ela seja oferecida na navegação pública.
@@ -219,6 +245,13 @@ dentro de elementos explicitamente roláveis, como a faixa de categorias.
 
 O backend repete a validação e é a autoridade final.
 
+## Testes de segurança do frontend
+
+`npm run test:security` executa sete testes com o test runner do Node: quatro verificam a fronteira
+de origem/prefixo para envio de Bearer e três verificam a reconstrução segura dos cabeçalhos no
+proxy de pré-produção. Esses testes não cobrem componentes React ou navegação completa; mantenha
+lint, build e validação dos fluxos autenticados.
+
 ## Adicionando uma tela
 
 1. crie os tipos de API em `interface`;
@@ -234,6 +267,7 @@ O backend repete a validação e é a autoridade final.
 
 ```powershell
 npm run lint
+npm run test:security
 npm run build:production
 ```
 

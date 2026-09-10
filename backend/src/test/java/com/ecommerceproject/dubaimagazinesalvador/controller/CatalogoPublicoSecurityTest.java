@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
@@ -36,7 +37,8 @@ import com.ecommerceproject.dubaimagazinesalvador.services.produto.DetalheProdut
 
 @WebMvcTest({ProdController.class, CategoriaController.class})
 @Import({SecurityConfigurations.class, SecurityFilter.class})
-class CatalogoPublicoSecurityTest {
+@ActiveProfiles("test")
+class CatalogoPublicoSecurityTest extends ProtecoesWebTestSupport {
 
     @Autowired
     private MockMvc mockMvc;
@@ -81,11 +83,25 @@ class CatalogoPublicoSecurityTest {
         mockMvc.perform(get("/produto/550e8400-e29b-41d4-a716-446655440000"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/admin/produtos"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/admin/categorias"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/interno/produtos"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void precosManuaisNaoPodemSerAlteradosPorVisitanteOuFuncionario() throws Exception {
+        var requisicao = org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .multipart("/produto/838563/apresentacao")
+                .param("exibirNoSite", "true").param("destaqueNaHome", "false")
+                .param("usarPrecosPersonalizados", "true").param("precoAVista", "1.00")
+                .param("precoCartaoParc", "1.00").param("maxParcelamento", "1")
+                .with(request -> { request.setMethod("PUT"); return request; });
+        mockMvc.perform(requisicao).andExpect(status().isUnauthorized());
+        mockMvc.perform(requisicao.with(user("funcionario").roles("FUNCIONARIO")))
                 .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoInteractions(apresentacaoProdutoService);
     }
 
     @Test
