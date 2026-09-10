@@ -9,7 +9,7 @@
     "build:preproduction": "tsc -b && vite build --mode preproduction",
     "build:production": "tsc -b && vite build --mode production",
     "lint": "eslint .",
-    "test:security": "node --test tests/*.test.mjs",
+    "test:security": "node --experimental-strip-types --test tests/*.test.mjs",
     "preview": "vite preview --mode production",
     "preview:preproduction": "vite preview --mode preproduction"
   },
