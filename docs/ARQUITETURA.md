@@ -94,9 +94,17 @@ converte as duas colunas antigas e as fotos já cadastradas na vitrine sem perde
 - valida extensão, MIME declarado e assinatura binária;
 - renomeia o arquivo com UUID;
 - grava no diretório configurado por `PRODUCT_IMAGES_DIR`;
+- verifica dimensões e quantidade total de pixels, recusando links simbólicos;
 - só permite leitura pública de nomes que seguem o formato gerado pela aplicação.
 
-O banco guarda a referência; o conteúdo binário fica no sistema de arquivos.
+O banco guarda a referência; o conteúdo binário fica no sistema de arquivos. A rota pública usa
+localização direta pelo UUID. Referências legadas contam com um índice montado uma vez, sem
+varredura do diretório a cada requisição. O antigo mapeamento público `/uploads/**` foi removido.
+
+`LimpezaImagensOrfasService` consulta as referências persistidas e remove arquivos gerenciados
+órfãos com idade mínima padrão de 24 horas. A limpeza é agendada diariamente; ela não pertence
+ao caminho de atendimento de uma requisição pública. Alterações editoriais coordenam a exclusão
+de imagens antigas com a conclusão da transação no banco.
 
 ### Autenticação
 
@@ -104,11 +112,37 @@ O login usa `codigoSantri` e senha. Após autenticação, `TokenService` cria um
 
 - `sub`: UUID do usuário;
 - `funcao`: papel do usuário;
-- `iss`: `auth-api`;
-- expiração configurável, com padrão de 3.600 segundos.
+- `iss`: `dubai-magazine-api`;
+- `aud`: `dubai-magazine-interno`;
+- `iat`, `jti` e `versao`: emissão, identificador do token e versão de sessão;
+- expiração configurável entre 300 e 3.600 segundos, com padrão de 3.600.
 
-O backend não cria sessão de servidor. Cada requisição protegida envia
-`Authorization: Bearer <token>`.
+Cada requisição protegida envia `Authorization: Bearer <token>`. O backend não cria sessão HTTP,
+mas verifica o usuário no banco, incluindo `ativo` e `versaoToken`. Portanto, a sessão pode ser
+revogada antes da expiração: logout incrementa a versão; alteração do estado de funcionário
+também invalida tokens anteriores. O papel usado na autorização vem do usuário atual no banco.
+
+### Proteções transversais
+
+`LimitadorRequisicoesPublicasInterceptor` limita leituras de catálogo e imagens por origem, com
+baldes e teto de memória separados. `FiltrosPesquisaCatalogo` normaliza os filtros e escapa os
+curingas do `LIKE`; consultas públicas têm tamanho, paginação e duração delimitados. A migration
+V26 melhora os índices de navegação por estado, ordem e categoria. Esses índices não transformam
+busca por trecho (`LIKE '%termo%'`) em uma busca de texto indexada: acompanhe planos de execução
+e latência quando a base crescer.
+
+`AuditoriaAdministrativaInterceptor` registra metadados de mutações autenticadas por meio de
+`AuditoriaAdministrativaService`. A trilha inclui ação, usuário, resultado e horário; IP e
+User-Agent recebem HMAC. A retenção padrão é de 180 dias, com exclusão diária limitada por lote.
+
+`PerfilExecucaoSeguro` exige exatamente um perfil conhecido. Em produção, conta de aplicação e
+conta de migrations são configuradas separadamente. O Nginx complementa as regras do backend com
+TLS, cabeçalhos, limites de requisições/conexões e validação do host público.
+
+Pré-produção e produção usam `server.forward-headers-strategy=native`: o `RemoteIpValve` do
+Tomcat processa `X-Forwarded-For`, protocolo e porta somente de conexões vindas de loopback. O
+proxy sobrescreve esses cabeçalhos antes de encaminhar; mudar sua topologia exige revisar essa
+lista de confiança.
 
 ## Frontend
 
@@ -138,7 +172,7 @@ banco e os arquivos enviados ficam no diretório externo `PRODUCT_IMAGES_DIR`.
 | `/trocas-e-devolucoes` | público | política comercial |
 | `/admin` | público | formulário de login interno |
 | `/minha-conta` | administrador | menu administrativo |
-| `/admin/funcionarios` | administrador | cadastro de funcionário |
+| `/admin/funcionarios` | administrador | cadastro, listagem e ativação/desativação de funcionário |
 | `/admin/importacao-produtos` | administrador | importação da relação de produtos ODS |
 | `/admin/importacao-promocoes` | administrador | importação das promoções ODS |
 | `/admin/importacao-estoque` | administrador | atualização do estoque pelo inventário ODS |
@@ -152,11 +186,14 @@ além dos atalhos operacionais entre catálogo e importações.
 
 ### Estado e comunicação
 
-- o token é mantido em `localStorage`;
+- o token é mantido em `sessionStorage`;
 - `AuthProvider` descarta token inválido ou expirado ao iniciar;
 - o interceptor do Axios inclui o Bearer token;
+- respostas `401` encerram a sessão local; logout também solicita revogação ao backend;
+- Bearer só acompanha a origem e o prefixo da API; URLs externas não recebem o token;
 - cookies e `withCredentials` ficam desativados;
 - TanStack Query mantém cache e invalida produtos e vitrines após alterações;
+- login, logout e expiração limpam o cache inteiro para separar dados de sessões distintas;
 - os filtros do catálogo ficam na query string, permitindo links diretos.
 - categoria, busca e faixa de preço são aplicadas na consulta JPA antes do `PageRequest`, para que
   a contagem e a navegação representem o conjunto filtrado inteiro.

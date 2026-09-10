@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -24,7 +25,8 @@ import com.ecommerceproject.dubaimagazinesalvador.services.produto.VisibilidadeP
 
 @WebMvcTest(VisibilidadeProdutosController.class)
 @Import({SecurityConfigurations.class, SecurityFilter.class})
-class VisibilidadeProdutosSecurityTest {
+@ActiveProfiles("test")
+class VisibilidadeProdutosSecurityTest extends ProtecoesWebTestSupport {
 
     @Autowired
     private MockMvc mockMvc;
@@ -47,7 +49,7 @@ class VisibilidadeProdutosSecurityTest {
         mockMvc.perform(put("/admin/produtos/visibilidade")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(put("/admin/produtos/visibilidade")
                         .with(user("funcionario").roles("FUNCIONARIO"))
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,3 +1,4 @@
+import { PrecoPersonalizado } from '../components/produtos/PrecoPersonalizado';
 import {
   type ChangeEvent,
   type MouseEvent,
@@ -63,7 +64,7 @@ function renderizarTrechos(texto: string, chave: string): ReactNode[] {
       elementos.push(
         <span
           key={`${chave}-tamanho-${indice}`}
-          style={{ fontSize: `${Number(correspondencia[3])}px` }}
+          className={`descricao-tamanho descricao-tamanho--${Number(correspondencia[3])}`}
         >
           {renderizarTrechos(correspondencia[4], `${chave}-tamanho-${indice}`)}
         </span>,
@@ -352,7 +353,7 @@ function ProdutoDetalhe() {
               Código Santri: <strong>{produtoAdmin.codigoSantri}</strong>
             </p>
           )}
-          <div className="product-detail-prices">
+          {produto.usarPrecosPersonalizados ? <PrecoPersonalizado produto={produto} /> : <div className="product-detail-prices">
             <span className={promocao ? 'is-old' : 'is-current'}>
               {formatarMoeda(produto.precoComIpi)}
             </span>
@@ -364,6 +365,7 @@ function ProdutoDetalhe() {
               </strong>
             )}
           </div>
+          }
           <div className={`product-detail-availability${produto.esgotado ? ' is-sold-out' : ''}`}>
             <i className={`bi ${produto.esgotado ? 'bi-x-circle-fill' : 'bi-check-circle-fill'}`} />
             {produto.esgotado ? 'ESGOTADO' : 'Disponível na loja'}

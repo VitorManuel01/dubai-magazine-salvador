@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1366 450" role="img" aria-labelledby="title description">
+  <title id="title">Dubai Magazine</title>
+  <desc id="description">Banner padrão enquanto uma imagem não foi cadastrada.</desc>
+  <rect width="1366" height="450" fill="#edf3fb"/>
+  <path d="M0 360C260 290 420 430 720 350s450-80 646-20v120H0Z" fill="#d8e7f8"/>
+  <text x="683" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#174d87">Dubai Magazine</text>
+  <text x="683" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#3972a8">Salvador</text>
+</svg>

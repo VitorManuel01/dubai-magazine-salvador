@@ -1,6 +1,7 @@
 package com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja;
 
 import java.util.List;
+import java.util.Objects;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 
@@ -84,6 +85,8 @@ public class ProdutoVitrineLoja {
     public List<String> getImagens() {
         return produto.getUrlsImagens().stream()
                 .map(com.ecommerceproject.dubaimagazinesalvador.domain.produto.ImagemProdutoCatalogo::criarUrlPublica)
+                // URLs legadas rejeitadas não podem introduzir null no DTO imutável.
+                .filter(Objects::nonNull)
                 .toList();
     }
 }

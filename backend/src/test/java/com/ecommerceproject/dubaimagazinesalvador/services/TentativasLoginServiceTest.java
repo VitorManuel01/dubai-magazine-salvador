@@ -34,7 +34,7 @@ class TentativasLoginServiceTest {
         usuario.setCodigoSantri("FUN-001");
         when(repository.buscarPorCodigoSantriParaAtualizacao("FUN-001"))
                 .thenReturn(Optional.of(usuario));
-        when(repository.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(repository.buscarPorIdParaAtualizacao(usuario.getId())).thenReturn(Optional.of(usuario));
     }
 
     @Test

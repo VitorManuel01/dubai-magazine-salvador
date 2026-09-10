@@ -30,6 +30,19 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.VitrineHomeReposi
 @ExtendWith(MockitoExtension.class)
 class VitrineHomeServiceTest {
 
+    @Test
+    void vitrinePublicaNaoRevelaCategoriaInternaMesmoComFlagVisivel() {
+        var interna = new Categoria("008.01", "INTERNA", 2, "INTERNA", null, true);
+        var ajustes = new Categoria("123.01", "AJUSTES", 2, "AJUSTES", null, true);
+        when(vitrineRepository.findByAtivoTrueOrderByOrdemAscIdAsc()).thenReturn(List.of(
+                new VitrineHome(interna, "Interno", "Não publicar", 0, true),
+                new VitrineHome(ajustes, "Ajustes", "Não publicar", 1, true)
+        ));
+
+        assertTrue(service.listarPublicas().isEmpty());
+        org.mockito.Mockito.verifyNoInteractions(produtoRepository);
+    }
+
     @Mock
     private VitrineHomeRepository vitrineRepository;
 

@@ -1,4 +1,6 @@
-export interface ProdutoCatalogoPublico {
+import { PrecosPersonalizados } from './PrecosPersonalizados';
+
+export interface ProdutoCatalogoPublico extends PrecosPersonalizados {
     idPublico: string;
     nomeExibidoSite: string;
     marca: string | null;
@@ -67,7 +69,7 @@ export interface ImagemProduto {
     ordem: number;
 }
 
-export interface ProdutoDetalhePublico {
+export interface ProdutoDetalhePublico extends PrecosPersonalizados {
     idPublico: string;
     nomeExibidoSite: string;
     precoComIpi: number;

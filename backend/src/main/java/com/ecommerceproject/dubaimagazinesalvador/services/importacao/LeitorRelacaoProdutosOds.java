@@ -30,6 +30,7 @@ import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.util.StreamReaderDelegate;
 
 import org.springframework.stereotype.Component;
 
@@ -57,6 +58,11 @@ public class LeitorRelacaoProdutosOds {
     private static final int MAX_LINHAS_INVENTARIO = 120_000;
     private static final int MAX_REGISTROS_INVENTARIO = 100_000;
     private static final int MAX_CARACTERES_CELULA = 75; // máximo de caracteres Unicode por célula
+    private static final int MAX_PROFUNDIDADE_XML = 64;
+    private static final int MAX_ATRIBUTOS_XML = 64;
+    private static final int MAX_NOME_XML = 256;
+    private static final int MAX_CARACTERES_ATRIBUTO_XML = 16_384;
+    private static final long MAX_EVENTOS_XML = 20_000_000L;
     private static final int MAX_ENTRADAS_ZIP = 100; // máximo de entradas (arquivos internos) que serão lidas do arquivo ODS compactado (ZIP)
     private static final long MAX_ARQUIVO_BYTES = 20L * 1024L * 1024L; // tamanho máximo do arquivo ODS que será aceito (20 MB)
     private static final long MAX_CONTENT_XML_BYTES = 250L * 1024L * 1024L; // tamanho máximo do arquivo content.xml dentro do ODS que será aceito (250 MB)
@@ -262,16 +268,18 @@ public class LeitorRelacaoProdutosOds {
     private Path copiarParaTemporario(InputStream arquivo) throws IOException {
         Path temporario = Files.createTempFile("importacao-produtos-", ".ods");
         boolean concluido = false;
-        try (OutputStream output = Files.newOutputStream(temporario)) {
-            byte[] buffer = new byte[8192];
-            long total = 0;
-            int lidos;
-            while ((lidos = arquivo.read(buffer)) != -1) {
-                total += lidos;
-                if (total > MAX_ARQUIVO_BYTES) {
-                    throw new ImportacaoOdsException("O arquivo excede o limite de 20 MB.");
+        try {
+            try (OutputStream output = Files.newOutputStream(temporario)) {
+                byte[] buffer = new byte[8192];
+                long total = 0;
+                int lidos;
+                while ((lidos = arquivo.read(buffer)) != -1) {
+                    total += lidos;
+                    if (total > MAX_ARQUIVO_BYTES) {
+                        throw new ImportacaoOdsException("O arquivo excede o limite de 20 MB.");
+                    }
+                    output.write(buffer, 0, lidos);
                 }
-                output.write(buffer, 0, lidos);
             }
             concluido = true;
             return temporario;
@@ -307,10 +315,10 @@ public class LeitorRelacaoProdutosOds {
         configurarXmlSeguro(factory);
 
         try {
-            XMLStreamReader reader = factory.createXMLStreamReader(
+            XMLStreamReader reader = new LeitorXmlLimitado(factory.createXMLStreamReader(
                     contentXml,
                     StandardCharsets.UTF_8.name()
-            );
+            ));
             try {
                 return percorrerPlanilha(reader);
             } finally {
@@ -325,9 +333,9 @@ public class LeitorRelacaoProdutosOds {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         configurarXmlSeguro(factory);
         try {
-            XMLStreamReader reader = factory.createXMLStreamReader(
+            XMLStreamReader reader = new LeitorXmlLimitado(factory.createXMLStreamReader(
                     contentXml, StandardCharsets.UTF_8.name()
-            );
+            ));
             try {
                 return percorrerPromocoes(reader);
             } finally {
@@ -345,10 +353,10 @@ public class LeitorRelacaoProdutosOds {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         configurarXmlSeguro(factory);
         try {
-            XMLStreamReader reader = factory.createXMLStreamReader(
+            XMLStreamReader reader = new LeitorXmlLimitado(factory.createXMLStreamReader(
                     contentXml,
                     StandardCharsets.UTF_8.name()
-            );
+            ));
             try {
                 return percorrerInventario(reader, consumidor);
             } finally {
@@ -1148,7 +1156,16 @@ public class LeitorRelacaoProdutosOds {
             return null;
         }
         try {
+            // O relatório exporta decimais, não expressões nem notação científica.
+            // Impede escalas/expoentes enormes antes de qualquer arredondamento no serviço.
+            if (!normalizado.matches("[+-]?\\d+(?:\\.\\d+)?")) {
+                throw erroLinha(numeroLinha, campo + " inválido: " + valor);
+            }
             BigDecimal decimal = new BigDecimal(normalizado);
+            if (decimal.precision() > 24 || decimal.scale() > 12
+                    || decimal.precision() - decimal.scale() > 13) {
+                throw erroLinha(numeroLinha, campo + " excede o limite numérico permitido.");
+            }
             if (decimal.signum() < 0) {
                 throw erroLinha(numeroLinha, campo + " não pode ser negativo: " + valor);
             }
@@ -1230,9 +1247,64 @@ public class LeitorRelacaoProdutosOds {
                 factory,
                 XMLInputFactory.IS_REPLACING_ENTITY_REFERENCES
         );
+        exigirPropriedadeXmlDesativada(factory, XMLInputFactory.IS_COALESCING);
+        exigirLimiteXml(factory, "jdk.xml.maxElementDepth", MAX_PROFUNDIDADE_XML);
+        exigirLimiteXml(factory, "jdk.xml.elementAttributeLimit", MAX_ATRIBUTOS_XML);
+        exigirLimiteXml(factory, "jdk.xml.maxXMLNameLimit", MAX_NOME_XML);
         factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
             throw new XMLStreamException("Acesso a recurso XML externo bloqueado.");
         });
+    }
+
+    private void exigirLimiteXml(XMLInputFactory factory, String propriedade, int limite) {
+        try {
+            factory.setProperty(propriedade, Integer.toString(limite));
+            if (!Integer.toString(limite).equals(String.valueOf(factory.getProperty(propriedade)))) {
+                throw new ImportacaoOdsException("O parser XML não confirmou os limites obrigatórios.");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new ImportacaoOdsException("O parser XML não oferece os limites obrigatórios.", e);
+        }
+    }
+
+    private static final class LeitorXmlLimitado extends StreamReaderDelegate {
+        private int profundidade;
+        private long eventos;
+
+        private LeitorXmlLimitado(XMLStreamReader reader) {
+            super(reader);
+        }
+
+        @Override
+        public int next() throws XMLStreamException {
+            int evento = super.next();
+            if (++eventos > MAX_EVENTOS_XML) {
+                throw new ImportacaoOdsException("O XML do ODS contém elementos demais.");
+            }
+            if (evento == XMLStreamConstants.DTD || evento == XMLStreamConstants.ENTITY_REFERENCE) {
+                throw new ImportacaoOdsException("DTD e entidades não são permitidos no ODS.");
+            }
+            if (evento == XMLStreamConstants.START_ELEMENT) {
+                if (++profundidade > MAX_PROFUNDIDADE_XML
+                        || getAttributeCount() + getNamespaceCount() > MAX_ATRIBUTOS_XML) {
+                    throw new ImportacaoOdsException("A estrutura XML do ODS excede os limites permitidos.");
+                }
+                for (int indice = 0; indice < getAttributeCount(); indice++) {
+                    if (getAttributeValue(indice).length() > MAX_CARACTERES_ATRIBUTO_XML) {
+                        throw new ImportacaoOdsException("Um atributo XML do ODS é muito grande.");
+                    }
+                }
+                for (int indice = 0; indice < getNamespaceCount(); indice++) {
+                    String namespace = getNamespaceURI(indice);
+                    if (namespace != null && namespace.length() > MAX_CARACTERES_ATRIBUTO_XML) {
+                        throw new ImportacaoOdsException("Um namespace XML do ODS é muito grande.");
+                    }
+                }
+            } else if (evento == XMLStreamConstants.END_ELEMENT) {
+                profundidade--;
+            }
+            return evento;
+        }
     }
 
     private void exigirPropriedadeXmlDesativada(

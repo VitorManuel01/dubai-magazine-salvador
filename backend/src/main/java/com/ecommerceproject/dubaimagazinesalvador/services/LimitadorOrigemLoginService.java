@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 public class LimitadorOrigemLoginService {
 
     public static final String CABECALHO_DISPOSITIVO = "X-Device-Id";
+    private static final Duration INTERVALO_LIMPEZA = Duration.ofMinutes(1);
+    private static final Duration ESPERA_QUANDO_CAPACIDADE_ESGOTADA =
+            Duration.ofMinutes(1);
 
     private final Map<ChaveOrigem, EstadoOrigem> origens = new HashMap<>();
     private final int maximoTentativasIp;
@@ -24,6 +27,7 @@ public class LimitadorOrigemLoginService {
     private final Duration atrasoInicial;
     private final Duration atrasoMaximo;
     private final int maximoOrigensRastreadas;
+    private Instant proximaLimpeza = Instant.EPOCH;
 
     public LimitadorOrigemLoginService(
             @Value("${app.security.login.ip.max-failed-attempts:20}") int maximoTentativasIp,
@@ -34,6 +38,25 @@ public class LimitadorOrigemLoginService {
             @Value("${app.security.login.max-delay:PT30S}") Duration atrasoMaximo,
             @Value("${app.security.login.max-tracked-origins:50000}") int maximoOrigensRastreadas
     ) {
+        if (maximoTentativasIp < 1
+                || maximoTentativasDispositivo < 1
+                || maximoOrigensRastreadas < 1) {
+            throw new IllegalArgumentException(
+                    "Os limites de login devem ser inteiros positivos."
+            );
+        }
+        if (janela == null
+                || janela.isNegative()
+                || duracaoBloqueio == null
+                || duracaoBloqueio.isNegative()
+                || duracaoBloqueio.isZero()
+                || atrasoInicial == null
+                || atrasoInicial.isNegative()
+                || atrasoMaximo == null
+                || atrasoMaximo.isNegative()
+                || atrasoInicial.compareTo(atrasoMaximo) > 0) {
+            throw new IllegalArgumentException("As durações de proteção do login são inválidas.");
+        }
         this.maximoTentativasIp = maximoTentativasIp;
         this.maximoTentativasDispositivo = maximoTentativasDispositivo;
         this.janela = janela;
@@ -45,7 +68,7 @@ public class LimitadorOrigemLoginService {
 
     public synchronized EstadoLimite reservarTentativa(String enderecoIp, String dispositivo) {
         Instant agora = Instant.now();
-        limparExpirados(agora);
+        limparExpiradosPeriodicamente(agora);
         List<ChaveOrigem> chaves = chaves(enderecoIp, dispositivo);
         Instant proximaTentativa = null;
 
@@ -68,11 +91,15 @@ public class LimitadorOrigemLoginService {
         for (ChaveOrigem chave : chaves) {
             EstadoOrigem estado = obterOuCriar(chave, agora);
             if (estado == null) {
+                if (chave.tipo == TipoOrigem.IP) {
+                    return EstadoLimite.limitado(
+                            agora.plus(ESPERA_QUANDO_CAPACIDADE_ESGOTADA)
+                    );
+                }
                 continue;
             }
             normalizarJanela(estado, agora);
             estado.tentativas++;
-            estado.atualizadoEm = agora;
 
             int maximo = chave.tipo == TipoOrigem.IP
                     ? maximoTentativasIp
@@ -113,19 +140,7 @@ public class LimitadorOrigemLoginService {
             return existente;
         }
         if (origens.size() >= maximoOrigensRastreadas) {
-            if (chave.tipo == TipoOrigem.DISPOSITIVO) {
-                return null;
-            }
-            ChaveOrigem dispositivoMaisAntigo = origens.entrySet().stream()
-                    .filter(entry -> entry.getKey().tipo == TipoOrigem.DISPOSITIVO)
-                    .min((primeiro, segundo) -> primeiro.getValue().atualizadoEm
-                            .compareTo(segundo.getValue().atualizadoEm))
-                    .map(Map.Entry::getKey)
-                    .orElse(null);
-            if (dispositivoMaisAntigo == null) {
-                return null;
-            }
-            origens.remove(dispositivoMaisAntigo);
+            return null;
         }
         EstadoOrigem novo = new EstadoOrigem(agora);
         origens.put(chave, novo);
@@ -161,6 +176,14 @@ public class LimitadorOrigemLoginService {
             );
             return expiraEm != null && !agora.isBefore(expiraEm);
         });
+    }
+
+    private void limparExpiradosPeriodicamente(Instant agora) {
+        if (agora.isBefore(proximaLimpeza)) {
+            return;
+        }
+        limparExpirados(agora);
+        proximaLimpeza = agora.plus(INTERVALO_LIMPEZA);
     }
 
     private String normalizarIp(String enderecoIp) {
@@ -204,7 +227,6 @@ public class LimitadorOrigemLoginService {
         private Instant inicioJanela;
         private Instant proximaTentativaEm;
         private Instant bloqueadoAte;
-        private Instant atualizadoEm;
 
         private EstadoOrigem(Instant agora) {
             reiniciar(agora);
@@ -215,7 +237,6 @@ public class LimitadorOrigemLoginService {
             inicioJanela = agora;
             proximaTentativaEm = null;
             bloqueadoAte = null;
-            atualizadoEm = agora;
         }
     }
 

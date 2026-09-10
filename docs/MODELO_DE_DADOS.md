@@ -9,6 +9,17 @@
 - valores monetários usam `DECIMAL`/`BigDecimal`, nunca `double`;
 - o esquema é criado e evoluído exclusivamente pelo Flyway.
 
+## Preços personalizados por produto (V27)
+
+- `usar_precos_personalizados`: desligado por padrão, independente para cada produto.
+- `preco_a_vista` e `preco_cartao_parc`: `DECIMAL(12,2)`, positivos. O segundo é o total no cartão, não o valor da parcela.
+- `max_parcelamento`: inteiro de 1 a 36; os três valores são obrigatórios ao ativar o modo personalizado.
+- São valores finais: não recebem o IPI do Santri novamente. Não se aplica a promoção do Santri sobre eles.
+- Desligar restaura a apresentação normal do Santri, incluindo promoção vigente quando aplicável, sem apagar os valores manuais.
+- Importações continuam atualizando preços e promoções do ERP, mas não sobrescrevem estes quatro campos locais.
+- Catálogo, home, detalhes e vitrine física usam o modo do produto. O filtro de faixa e a ordenação por preço usam o valor à vista quando personalizado; desligado, conservam o cálculo normal com IPI.
+- A API pública omite os valores personalizados enquanto desligados; o administrador os recebe para edição.
+
 ## Relacionamentos
 
 ```mermaid
@@ -35,10 +46,16 @@ Armazena os campos comuns de autenticação:
 - hash BCrypt da senha;
 - função `ROLE_ADMIN`, `ROLE_FUNCIONARIO` ou legado `ROLE_CLIENTE`;
 - quantidade de falhas consecutivas;
-- instante até o qual a conta permanece bloqueada.
+- instante até o qual a conta permanece bloqueada;
+- `ativo`: controla se a conta pode autenticar e usar tokens;
+- `versao_token`: comparada com o claim `versao` em cada requisição autenticada.
 
 O e-mail foi removido do modelo atual de autenticação. O login é exclusivamente pelo código
 Santri.
+
+Logout e alterações do estado de funcionário incrementam a versão. Reativar uma conta não
+reativa tokens antigos; é necessário novo login. A V24 inicializa contas existentes como ativas
+e com versão zero. Tokens emitidos antes da adoção do claim de versão deixam de ser aceitos.
 
 ### `administradores` e `funcionarios`
 
@@ -47,6 +64,20 @@ data de nascimento, CEP, bairro e telefone. Administradores também possuem ende
 
 As tabelas e a entidade legada de cliente ainda existem por histórico de migrations, mas suas
 rotas são negadas e o produto atual não oferece cadastro nem login de cliente.
+
+A resposta de listagem/cadastro de funcionário expõe apenas `id`, `codigoSantri`,
+`nomeFuncionario`, `funcao` e `ativo`. A minimização da resposta não remove os dados cadastrais
+necessários já armazenados nas tabelas internas.
+
+### `auditoria_administrativa`
+
+A V25 cria a trilha com usuário, código Santri, função, método HTTP, caminho, status e horário.
+IP e User-Agent são guardados como HMAC de 64 caracteres; o corpo da requisição, tokens e query
+string não são armazenados. O vínculo ao usuário usa `ON DELETE SET NULL`, preservando a trilha
+se o cadastro for removido. Índices por horário e usuário/horário apoiam consulta e retenção.
+
+A retenção padrão é de 180 dias, com limpeza diária de até 10.000 registros por execução.
+Esse limite pode fazer a exclusão levar mais de um ciclo em uma base com grande volume antigo.
 
 ## Categorias
 
@@ -73,12 +104,15 @@ Exemplo de árvore:
 
 | Código raiz | Tratamento atual |
 |---|---|
-| `008` — Uso e Consumo | ocultado pela interface pública do catálogo |
+| `008` — Uso e Consumo | excluído pelo backend das respostas públicas |
 | `089` — Ativo Imobilizado | produtos e categorias removidos durante a importação |
 | `123` — Ajustes de Grupos | mantido para administração, ocultado do público |
 | `999` — Implantação | mantido para administração, ocultado do público |
 
 As regras abrangem o código raiz e todos os descendentes, por exemplo `123.001`.
+
+`008`, `123` e `999` continuam excluídas do catálogo, detalhe e amostras públicas da home mesmo
+se `exibir_no_site` for alterado indevidamente para `true`. A interface não é a única barreira.
 
 ## Produtos
 
@@ -252,9 +286,12 @@ além de veículos.
 | V21 | dados de preço e período das promoções de venda |
 | V22 | segunda imagem do produto para hover no catálogo |
 | V23 | identificador público, descrição e galeria compartilhada de até oito fotos |
+| V24 | estado ativo do usuário e versão de sessão para revogação de JWT |
+| V25 | trilha de auditoria administrativa e índices de consulta/retenção |
+| V26 | índices de navegação do catálogo por categoria, visibilidade, disponibilidade e ordem |
 
 Nunca altere uma migration que já foi aplicada em um ambiente compartilhado. Toda mudança futura
-de esquema deve ser criada em uma nova migration posterior à V23.
+de esquema deve usar a próxima versão disponível após conferir o diretório de migrations.
 
 ## Recriação do banco
 

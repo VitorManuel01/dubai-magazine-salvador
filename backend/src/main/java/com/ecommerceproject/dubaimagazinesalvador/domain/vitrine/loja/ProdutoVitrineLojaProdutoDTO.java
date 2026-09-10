@@ -13,6 +13,10 @@ public record ProdutoVitrineLojaProdutoDTO(
         String unidade,
         BigDecimal quantidade,
         BigDecimal precoVenda,
+        boolean usarPrecosPersonalizados,
+        BigDecimal precoAVista,
+        BigDecimal precoCartaoParc,
+        Integer maxParcelamento,
         String imagemUrl
 ) {
 
@@ -25,6 +29,10 @@ public record ProdutoVitrineLojaProdutoDTO(
                 produto.getUnidadeVenda(),
                 produto.getEstoque(),
                 produto.getPrecoVendaEfetivo(),
+                produto.isUsarPrecosPersonalizados(),
+                produto.isUsarPrecosPersonalizados() ? produto.getPrecoAVista() : null,
+                produto.isUsarPrecosPersonalizados() ? produto.getPrecoCartaoParc() : null,
+                produto.isUsarPrecosPersonalizados() ? produto.getMaxParcelamento() : null,
                 ImagemProdutoCatalogo.criarUrlPublica(produto.getImagemUrl())
         );
     }

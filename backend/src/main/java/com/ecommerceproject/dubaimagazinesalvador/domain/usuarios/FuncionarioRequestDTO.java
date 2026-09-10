@@ -2,6 +2,8 @@ package com.ecommerceproject.dubaimagazinesalvador.domain.usuarios;
 
 import java.time.LocalDate;
 
+import com.ecommerceproject.dubaimagazinesalvador.domain.usuarios.validation.SenhaCompativelComBCrypt;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
@@ -17,7 +19,8 @@ public record FuncionarioRequestDTO(
         String codigoSantri,
 
         @NotBlank
-        @Size(min = 12, max = 128)
+        @Size(min = 12, max = 72)
+        @SenhaCompativelComBCrypt
         @Pattern(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$",
                 message = "A senha deve conter letra maiúscula, minúscula, número e caractere especial"

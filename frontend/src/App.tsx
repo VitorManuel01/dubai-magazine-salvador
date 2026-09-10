@@ -111,6 +111,8 @@ function BarraBusca() {
           ? 'Buscar por produto, código Santri ou marca'
           : 'Buscar por produto ou marca'}
         aria-label="Buscar produtos"
+        minLength={funcao === 'ROLE_ADMIN' || funcao === 'ROLE_FUNCIONARIO' ? 1 : 2}
+        maxLength={100}
         value={termo}
         onChange={(event) => setTermo(event.target.value)}
       />
@@ -356,7 +358,7 @@ function ConteudoAplicacao() {
                 <Link className="brand-area" to="/" aria-label="Dubai Magazine - página inicial">
                   <img className="brand-logo" src="/assets/branding/DubaiMagazine_Principal_Azul.png" alt="Dubai Magazine" />
                 </Link>
-                <div className="footer-social" style={{ marginTop: '12px' }}>
+                <div className="footer-social footer-social--spaced">
                   <a className="footer-meta" href="https://www.instagram.com/dubai.magazine/" target="_blank" rel="noreferrer">
                     <i className="bi bi-instagram" /> @dubai.magazine
                   </a>

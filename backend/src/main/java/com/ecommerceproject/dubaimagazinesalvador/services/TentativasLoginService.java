@@ -25,6 +25,14 @@ public class TentativasLoginService {
             @Value("${app.security.login.max-failed-attempts:3}") int maximoTentativas,
             @Value("${app.security.login.lock-duration:PT20M}") Duration duracaoBloqueio
     ) {
+        if (maximoTentativas < 1
+                || duracaoBloqueio == null
+                || duracaoBloqueio.isNegative()
+                || duracaoBloqueio.isZero()) {
+            throw new IllegalArgumentException(
+                    "A política de bloqueio da conta possui configuração inválida."
+            );
+        }
         this.usuarioRepository = usuarioRepository;
         this.maximoTentativas = maximoTentativas;
         this.duracaoBloqueio = duracaoBloqueio;
@@ -61,7 +69,7 @@ public class TentativasLoginService {
 
     @Transactional
     public void registrarSucesso(UUID usuarioId) {
-        usuarioRepository.findById(usuarioId).ifPresent(conta -> {
+        usuarioRepository.buscarPorIdParaAtualizacao(usuarioId).ifPresent(conta -> {
             if (conta.getTentativasLoginFalhas() != 0 || conta.getBloqueadoAte() != null) {
                 limpar(conta);
                 usuarioRepository.save(conta);

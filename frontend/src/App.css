@@ -96,6 +96,10 @@ textarea {
   justify-content: flex-end;
 }
 
+.footer-social--spaced {
+  margin-top: 12px;
+}
+
 .top-strip__group,
 .header-actions,
 .footer-social,

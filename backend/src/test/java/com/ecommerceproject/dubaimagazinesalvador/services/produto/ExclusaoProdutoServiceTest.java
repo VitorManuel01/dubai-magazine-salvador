@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -29,18 +30,15 @@ class ExclusaoProdutoServiceTest {
     private ArmazenamentoImagemProdutoService armazenamentoImagem;
 
     @Test
-    void deveExcluirProdutoELimparImagensGerenciadas() {
+    void deveExcluirProdutoEPreservarFotosAteConferirReferenciasCompartilhadas() {
         Produto produto = mock(Produto.class);
-        when(produto.getImagemUrl()).thenReturn("/uploads/produtos/principal.webp");
-        when(produto.getImagemHoverUrl()).thenReturn("/uploads/produtos/hover.webp");
         when(produtoRepository.findById("100")).thenReturn(Optional.of(produto));
 
         new ExclusaoProdutoService(produtoRepository, armazenamentoImagem).excluir("100");
 
         verify(produtoRepository).delete(produto);
         verify(produtoRepository).flush();
-        verify(armazenamentoImagem).removerSeGerenciada("/uploads/produtos/principal.webp");
-        verify(armazenamentoImagem).removerSeGerenciada("/uploads/produtos/hover.webp");
+        verifyNoInteractions(armazenamentoImagem);
     }
 
     @Test
@@ -59,8 +57,6 @@ class ExclusaoProdutoServiceTest {
     void deveExcluirTodosOsProdutosSelecionadosAposValidarTodosOsCodigos() {
         Produto primeiro = mock(Produto.class);
         Produto segundo = mock(Produto.class);
-        when(primeiro.getImagemUrl()).thenReturn("/uploads/produtos/100.webp");
-        when(segundo.getImagemHoverUrl()).thenReturn("/uploads/produtos/200-hover.webp");
         when(produtoRepository.findAllById(any())).thenReturn(List.of(primeiro, segundo));
 
         int excluidos = new ExclusaoProdutoService(
@@ -71,8 +67,7 @@ class ExclusaoProdutoServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals(2, excluidos);
         verify(produtoRepository).deleteAll(List.of(primeiro, segundo));
         verify(produtoRepository).flush();
-        verify(armazenamentoImagem).removerSeGerenciada("/uploads/produtos/100.webp");
-        verify(armazenamentoImagem).removerSeGerenciada("/uploads/produtos/200-hover.webp");
+        verifyNoInteractions(armazenamentoImagem);
     }
 
     @Test

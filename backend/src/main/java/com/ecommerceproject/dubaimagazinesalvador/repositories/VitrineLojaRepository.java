@@ -24,13 +24,13 @@ public interface VitrineLojaRepository extends JpaRepository<VitrineLoja, Long> 
             WHERE (:somenteAtivas = false OR vitrine.ativo = true)
               AND (
                     :busca IS NULL
-                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(opcao.rotuloOpcao) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(secao.titulo) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(secao.conteudo) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(opcao.rotuloOpcao) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(secao.titulo) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(secao.conteudo) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
               )
             ORDER BY vitrine.atualizadoEm DESC, vitrine.id DESC
             """,
@@ -43,13 +43,13 @@ public interface VitrineLojaRepository extends JpaRepository<VitrineLoja, Long> 
             WHERE (:somenteAtivas = false OR vitrine.ativo = true)
               AND (
                     :busca IS NULL
-                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(opcao.rotuloOpcao) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(secao.titulo) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(secao.conteudo) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(opcao.rotuloOpcao) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(secao.titulo) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(secao.conteudo) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
               )
             """
     )
@@ -74,4 +74,3 @@ public interface VitrineLojaRepository extends JpaRepository<VitrineLoja, Long> 
             @Param("vitrineId") Long vitrineId
     );
 }
-

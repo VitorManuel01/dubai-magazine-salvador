@@ -65,6 +65,29 @@ class ApresentacaoProdutoServiceTest {
     }
 
     @Test
+    void devePersistirPrecosJuntoComApresentacaoEPreservarAoDesligar() {
+        var produto = new Produto();
+        produto.setNome("Produto");
+        produto.setNomeExibidoSite("Produto");
+        produto.setCategoria(new com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria(
+                "001", "Categoria", 1, "Categoria", null, true));
+        when(controleRepository.bloquearParaAtualizacao()).thenReturn(Optional.of(mock(ControleSelecaoHome.class)));
+        when(produtoRepository.findById("100")).thenReturn(Optional.of(produto));
+        when(produtoRepository.saveAndFlush(produto)).thenReturn(produto);
+        var resposta = service.atualizar("100", "Produto", true, false, null, null,
+                new com.ecommerceproject.dubaimagazinesalvador.domain.produto.PrecosPersonalizadosRequestDTO(
+                        true, new java.math.BigDecimal("100.00"), new java.math.BigDecimal("120.00"), 10));
+        org.assertj.core.api.Assertions.assertThat(resposta.usarPrecosPersonalizados()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(resposta.precoAVista()).isEqualByComparingTo("100.00");
+        org.assertj.core.api.Assertions.assertThat(resposta.precoCartaoParc()).isEqualByComparingTo("120.00");
+        org.assertj.core.api.Assertions.assertThat(resposta.maxParcelamento()).isEqualTo(10);
+        var desligado = service.atualizar("100", "Produto", true, false, null, null,
+                new com.ecommerceproject.dubaimagazinesalvador.domain.produto.PrecosPersonalizadosRequestDTO(false, null, null, null));
+        org.assertj.core.api.Assertions.assertThat(desligado.usarPrecosPersonalizados()).isFalse();
+        org.assertj.core.api.Assertions.assertThat(desligado.precoAVista()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
     void deveRejeitarDestaqueDeProdutoOculto() {
         Produto produto = mock(Produto.class);
         when(controleRepository.bloquearParaAtualizacao())

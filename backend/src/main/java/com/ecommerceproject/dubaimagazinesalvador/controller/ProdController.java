@@ -33,9 +33,14 @@ import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ApresentacaoProdutoService;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdutoService;
 import com.ecommerceproject.dubaimagazinesalvador.services.produto.DetalheProdutoService;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.FiltrosPesquisaCatalogo;
 
 @RestController
 public class ProdController {
+
+    private static final int PAGINA_MAXIMA = 5_000;
+    private static final BigDecimal PRECO_MAXIMO_FILTRO =
+            new BigDecimal("9999999999999.99");
 
     private final ProdutoRepository produtoRepository;
     private final CategoriaRepository categoriaRepository;
@@ -207,10 +212,10 @@ public class ProdController {
             boolean incluirOcultos,
             boolean pesquisarCodigoSantri
     ) {
-        if (pagina < 0 || tamanho < 1 || tamanho > 60) {
+        if (pagina < 0 || pagina > PAGINA_MAXIMA || tamanho < 1 || tamanho > 60) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "A página deve ser positiva e o tamanho deve estar entre 1 e 60."
+                    "A página deve estar entre 0 e 5000 e o tamanho entre 1 e 60."
             );
         }
         if ((precoMinimo != null && precoMinimo.signum() < 0)
@@ -228,12 +233,13 @@ public class ProdController {
                     "O preço mínimo não pode ser maior que o preço máximo."
             );
         }
-        String categoriaNormalizada = categoriaCodigo == null || categoriaCodigo.isBlank()
-                ? null
-                : categoriaCodigo.trim();
-        String buscaNormalizada = busca == null || busca.isBlank()
-                ? null
-                : busca.trim();
+        validarFormatoPreco(precoMinimo);
+        validarFormatoPreco(precoMaximo);
+        String categoriaNormalizada = FiltrosPesquisaCatalogo
+                .normalizarCodigoCategoria(categoriaCodigo);
+        String buscaNormalizada = FiltrosPesquisaCatalogo.normalizarBuscaParaLike(
+                busca, pesquisarCodigoSantri ? 1 : 2
+        );
         PageRequest paginacao = PageRequest.of(pagina, tamanho);
         if (pesquisarCodigoSantri && !incluirOcultos) {
             if (precoMinimo == null && precoMaximo == null) {
@@ -273,6 +279,19 @@ public class ProdController {
         );
     }
 
+    private void validarFormatoPreco(BigDecimal preco) {
+        if (preco == null) {
+            return;
+        }
+        BigDecimal normalizado = preco.stripTrailingZeros();
+        if (normalizado.scale() > 2 || preco.compareTo(PRECO_MAXIMO_FILTRO) > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "O preço deve possuir no máximo 2 casas decimais e 13 inteiros."
+            );
+        }
+    }
+
     @DeleteMapping("/produto/{codigoSantri}")
     public ResponseEntity<String> deleteProduto(@PathVariable String codigoSantri) {
         exclusaoProdutoService.excluir(codigoSantri);
@@ -289,7 +308,9 @@ public class ProdController {
             @RequestParam boolean exibirNoSite,
             @RequestParam boolean destaqueNaHome,
             @RequestParam(required = false) MultipartFile imagem,
-            @RequestParam(required = false) MultipartFile imagemHover
+            @RequestParam(required = false) MultipartFile imagemHover,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.ModelAttribute
+            com.ecommerceproject.dubaimagazinesalvador.domain.produto.PrecosPersonalizadosRequestDTO precos
     ) {
         return ResponseEntity.ok(
                 apresentacaoProdutoService.atualizar(
@@ -298,7 +319,8 @@ public class ProdController {
                         exibirNoSite,
                         destaqueNaHome,
                         imagem,
-                        imagemHover
+                        imagemHover,
+                        precos
                 )
         );
     }

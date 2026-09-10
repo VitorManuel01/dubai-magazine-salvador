@@ -3,11 +3,14 @@ package com.ecommerceproject.dubaimagazinesalvador.services.produto;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.Produto;
 import com.ecommerceproject.dubaimagazinesalvador.domain.produto.ProdutoResponseDTO;
+import com.ecommerceproject.dubaimagazinesalvador.domain.produto.PrecosPersonalizadosRequestDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ControleSelecaoHomeRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 
@@ -57,6 +60,14 @@ public class ApresentacaoProdutoService {
             MultipartFile imagem,
             MultipartFile imagemHover
     ) {
+        return atualizar(codigoSantri, nomeExibidoSite, exibirNoSite, destaqueNaHome, imagem, imagemHover, null);
+    }
+
+    @Transactional
+    public ProdutoResponseDTO atualizar(
+            String codigoSantri, String nomeExibidoSite, boolean exibirNoSite, boolean destaqueNaHome,
+            MultipartFile imagem, MultipartFile imagemHover, PrecosPersonalizadosRequestDTO precos
+    ) {
         controleSelecaoHomeRepository.bloquearParaAtualizacao()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -93,21 +104,34 @@ public class ApresentacaoProdutoService {
         }
 
         String nomeNormalizado = normalizarNomeExibidoSite(nomeExibidoSite, produto);
-        String novaImagemUrl = imagem == null || imagem.isEmpty()
-                ? null
-                : armazenamentoImagem.salvar(imagem);
-        String novaImagemHoverUrl = imagemHover == null || imagemHover.isEmpty()
-                ? null
-                : armazenamentoImagem.salvar(imagemHover);
-        produto.atualizarApresentacao(
-                nomeNormalizado,
-                exibirNoSite,
-                destaqueNaHome,
-                novaImagemUrl,
-                novaImagemHoverUrl
-        );
-
-        return new ProdutoResponseDTO(produto);
+        if (precos != null) precos.aplicar(produto);
+        String novaImagemUrl = null;
+        String novaImagemHoverUrl = null;
+        try {
+            novaImagemUrl = imagem == null || imagem.isEmpty()
+                    ? null
+                    : armazenamentoImagem.salvar(imagem);
+            novaImagemHoverUrl = imagemHover == null || imagemHover.isEmpty()
+                    ? null
+                    : armazenamentoImagem.salvar(imagemHover);
+            produto.atualizarApresentacao(
+                    nomeNormalizado,
+                    exibirNoSite,
+                    destaqueNaHome,
+                    novaImagemUrl,
+                    novaImagemHoverUrl
+            );
+            Produto salvo = produtoRepository.saveAndFlush(produto);
+            registrarCicloDeVidaImagens(
+                    novaImagemUrl,
+                    novaImagemHoverUrl
+            );
+            return new ProdutoResponseDTO(salvo);
+        } catch (RuntimeException e) {
+            armazenamentoImagem.removerSeGerenciada(novaImagemUrl);
+            armazenamentoImagem.removerSeGerenciada(novaImagemHoverUrl);
+            throw e;
+        }
     }
 
     private String normalizarNomeExibidoSite(String nomeExibidoSite, Produto produto) {
@@ -123,4 +147,25 @@ public class ApresentacaoProdutoService {
         }
         return nomeNormalizado.isBlank() ? produto.getNome() : nomeNormalizado;
     }
+
+    private void registrarCicloDeVidaImagens(
+            String novaPrincipal,
+            String novaHover
+    ) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                            armazenamentoImagem.removerSeGerenciada(novaPrincipal);
+                            armazenamentoImagem.removerSeGerenciada(novaHover);
+                        }
+                    }
+                }
+        );
+    }
+
 }

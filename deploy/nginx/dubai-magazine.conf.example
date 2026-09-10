@@ -1,6 +1,23 @@
 # Modelo para produção. Este arquivo não é carregado durante o desenvolvimento.
 # Substitua DOMINIO_EXEMPLO e os caminhos antes de habilitá-lo no Nginx.
 
+# Estas zonas devem ficar no contexto `http` (como acontece quando este arquivo
+# é incluído por sites-enabled dentro do nginx.conf).
+limit_req_zone $binary_remote_addr zone=dubai_api:10m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=dubai_conexoes:10m;
+map $host $dubai_host_valido {
+    default 0;
+    DOMINIO_EXEMPLO 1;
+    www.DOMINIO_EXEMPLO 1;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 444;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -11,7 +28,7 @@ server {
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://DOMINIO_EXEMPLO$request_uri;
     }
 }
 
@@ -21,6 +38,10 @@ server {
     http2 on;
     server_name DOMINIO_EXEMPLO www.DOMINIO_EXEMPLO;
 
+    if ($dubai_host_valido = 0) {
+        return 444;
+    }
+
     root /var/www/dubai-magazine;
     index index.html;
 
@@ -29,25 +50,63 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 1d;
+    ssl_session_tickets off;
 
     server_tokens off;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
+    add_header X-Permitted-Cross-Domain-Policies "none" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; upgrade-insecure-requests" always;
 
-    location /api/ {
+    client_body_timeout 30s;
+    client_header_timeout 15s;
+    keepalive_timeout 30s;
+    send_timeout 30s;
+
+    # ^~ impede que a rota de imagens da API seja capturada pelo bloco regex
+    # de arquivos estáticos abaixo.
+    location ^~ /api/ {
+        limit_req zone=dubai_api burst=60 nodelay;
+        limit_req_status 429;
+        limit_conn dubai_conexoes 20;
         proxy_pass http://127.0.0.1:8081/;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
+        proxy_set_header Host DOMINIO_EXEMPLO;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Sobrescreve qualquer X-Forwarded-For fornecido pelo cliente.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header X-Forwarded-Server "";
+        proxy_set_header CF-Connecting-IP "";
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port 443;
+        proxy_hide_header Server;
         proxy_connect_timeout 10s;
         proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_request_buffering on;
         client_max_body_size 20m;
+    }
+
+    location ~ /\.(?!well-known/) {
+        deny all;
+    }
+
+    location = /index.html {
+        try_files $uri =404;
+        expires -1;
+    }
+
+    location ~* \.(?:css|js|png|jpe?g|webp|svg|woff2?)$ {
+        try_files $uri =404;
+        expires 30d;
     }
 
     location / {

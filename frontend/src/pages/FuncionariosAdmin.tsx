@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios, { AxiosError } from 'axios';
 import { Link } from 'react-router-dom';
 import './MinhaConta.css';
@@ -15,6 +16,34 @@ interface FuncionarioForm {
   bairro: string;
   telefone: string;
 }
+
+interface FuncionarioResumo {
+  id: string;
+  codigoSantri: string;
+  nomeFuncionario: string;
+  funcao: string;
+  ativo: boolean;
+}
+
+interface AlteracaoStatusFuncionario {
+  id: string;
+  ativo: boolean;
+}
+
+const CHAVE_FUNCIONARIOS = ['funcionarios'] as const;
+
+const listarFuncionarios = async (): Promise<FuncionarioResumo[]> => {
+  const resposta = await axios.get<FuncionarioResumo[]>('/funcionario');
+  return resposta.data;
+};
+
+const atualizarStatusFuncionario = async ({
+  id,
+  ativo,
+}: AlteracaoStatusFuncionario): Promise<FuncionarioResumo> => {
+  const resposta = await axios.put<FuncionarioResumo>(`/funcionario/${id}/status`, { ativo });
+  return resposta.data;
+};
 
 const estadoInicial: FuncionarioForm = {
   codigoSantri: '',
@@ -33,10 +62,32 @@ const apenasNumeros = (valor: string, limite: number) =>
   valor.replace(/\D/g, '').slice(0, limite);
 
 function FuncionariosAdmin() {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<FuncionarioForm>(estadoInicial);
   const [enviando, setEnviando] = useState(false);
   const [sucesso, setSucesso] = useState('');
   const [erro, setErro] = useState('');
+  const [erroStatus, setErroStatus] = useState('');
+
+  const funcionariosQuery = useQuery({
+    queryKey: CHAVE_FUNCIONARIOS,
+    queryFn: listarFuncionarios,
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: atualizarStatusFuncionario,
+    onMutate: () => setErroStatus(''),
+    onSuccess: (funcionarioAtualizado) => {
+      queryClient.setQueryData<FuncionarioResumo[]>(CHAVE_FUNCIONARIOS, (funcionarios = []) =>
+        funcionarios.map((funcionario) =>
+          funcionario.id === funcionarioAtualizado.id ? funcionarioAtualizado : funcionario
+        )
+      );
+    },
+    onError: () => {
+      setErroStatus('Não foi possível alterar o acesso do funcionário. Tente novamente.');
+    },
+  });
 
   const alterar = (campo: keyof FuncionarioForm, valor: string) => {
     setForm((atual) => ({ ...atual, [campo]: valor }));
@@ -68,6 +119,7 @@ function FuncionariosAdmin() {
       await axios.post('/funcionario', {
         ...dados,
       });
+      await queryClient.invalidateQueries({ queryKey: CHAVE_FUNCIONARIOS });
       setForm(estadoInicial);
       setSucesso('Funcionário cadastrado com segurança.');
     } catch (falha) {
@@ -91,11 +143,105 @@ function FuncionariosAdmin() {
 
       <header className="employee-heading">
         <span>Área administrativa</span>
-        <h1>Cadastrar funcionário</h1>
-        <p>O funcionário terá acesso somente à consulta da vitrine da loja física.</p>
+        <h1>Funcionários</h1>
+        <p>Cadastre pessoas e controle quem pode acessar a consulta interna.</p>
       </header>
 
+      <section className="employee-list-card" aria-labelledby="employee-list-title">
+        <div className="employee-list-heading">
+          <div>
+            <span>Controle de acesso</span>
+            <h2 id="employee-list-title">Funcionários cadastrados</h2>
+          </div>
+          <button
+            className="btn btn-outline-primary"
+            type="button"
+            onClick={() => funcionariosQuery.refetch()}
+            disabled={funcionariosQuery.isFetching}
+          >
+            {funcionariosQuery.isFetching ? 'Atualizando...' : 'Atualizar lista'}
+          </button>
+        </div>
+
+        {funcionariosQuery.isLoading && (
+          <p className="employee-list-message" role="status">Carregando funcionários...</p>
+        )}
+
+        {funcionariosQuery.isError && (
+          <p className="employee-feedback employee-feedback--error" role="alert">
+            Não foi possível carregar os funcionários.
+          </p>
+        )}
+
+        {erroStatus && (
+          <p className="employee-feedback employee-feedback--error" role="alert">
+            {erroStatus}
+          </p>
+        )}
+
+        {funcionariosQuery.data?.length === 0 && (
+          <p className="employee-list-message">Nenhum funcionário cadastrado.</p>
+        )}
+
+        {!!funcionariosQuery.data?.length && (
+          <div className="employee-table-wrap">
+            <table className="employee-table">
+              <thead>
+                <tr>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Código Santri</th>
+                  <th scope="col">Função</th>
+                  <th scope="col">Status</th>
+                  <th scope="col"><span className="visually-hidden">Ação</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {funcionariosQuery.data.map((funcionario) => {
+                  const alterandoEste = statusMutation.isPending
+                    && statusMutation.variables?.id === funcionario.id;
+
+                  return (
+                    <tr key={funcionario.id}>
+                      <td data-label="Nome">{funcionario.nomeFuncionario}</td>
+                      <td data-label="Código Santri">{funcionario.codigoSantri}</td>
+                      <td data-label="Função">
+                        {funcionario.funcao === 'funcionario' ? 'Funcionário' : funcionario.funcao}
+                      </td>
+                      <td data-label="Status">
+                        <span className={`employee-status employee-status--${funcionario.ativo ? 'active' : 'inactive'}`}>
+                          {funcionario.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="employee-table__action">
+                        <button
+                          className={`btn btn-sm ${funcionario.ativo ? 'btn-outline-danger' : 'btn-outline-success'}`}
+                          type="button"
+                          disabled={statusMutation.isPending}
+                          onClick={() => statusMutation.mutate({
+                            id: funcionario.id,
+                            ativo: !funcionario.ativo,
+                          })}
+                        >
+                          {alterandoEste
+                            ? 'Salvando...'
+                            : funcionario.ativo ? 'Desativar' : 'Ativar'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <section className="employee-form-card">
+        <div className="employee-form-heading">
+          <span>Novo acesso</span>
+          <h2>Cadastrar funcionário</h2>
+          <p>O funcionário terá acesso somente à consulta da vitrine da loja física.</p>
+        </div>
         <form className="employee-form" onSubmit={cadastrar}>
           <div className="employee-field employee-field--wide">
             <label htmlFor="employee-name">Nome completo</label>
@@ -132,7 +278,7 @@ function FuncionariosAdmin() {
               value={form.senha}
               onChange={(event) => alterar('senha', event.target.value)}
               minLength={12}
-              maxLength={128}
+              maxLength={72}
               autoComplete="new-password"
               required
             />
@@ -147,7 +293,7 @@ function FuncionariosAdmin() {
               value={form.confirmarSenha}
               onChange={(event) => alterar('confirmarSenha', event.target.value)}
               minLength={12}
-              maxLength={128}
+              maxLength={72}
               autoComplete="new-password"
               required
             />

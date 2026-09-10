@@ -9,6 +9,7 @@
     "build:preproduction": "tsc -b && vite build --mode preproduction",
     "build:production": "tsc -b && vite build --mode production",
     "lint": "eslint .",
+    "test:security": "node --experimental-strip-types --test tests/*.test.mjs",
     "preview": "vite preview --mode production",
     "preview:preproduction": "vite preview --mode preproduction"
   },
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.0.5",

@@ -37,6 +37,34 @@ class ProdutoTest {
     }
 
     @Test
+    void precosManuaisPrevalecemSemAlterarSantriESobrevivemAImportacao() {
+        Produto produto = new Produto(produtoImportado("GIZ", "10.00", "10"), categoria, LocalDateTime.now());
+        produto.setEmPromocao(true);
+        produto.setPrecoPromocao(new BigDecimal("9.00"));
+        new PrecosPersonalizadosRequestDTO(true, new BigDecimal("7.50"), new BigDecimal("9.00"), 3).aplicar(produto);
+        assertEquals(new BigDecimal("7.50"), produto.getPrecoVendaEfetivo());
+        assertEquals(new BigDecimal("11.00"), produto.getPrecoComIpi());
+        assertFalse(new ProdutoCatalogoPublicoDTO(produto).emPromocao());
+        assertEquals(new BigDecimal("7.50"), new ProdutoDetalhePublicoDTO(produto).precoAVista());
+        assertEquals(3, new ProdutoCatalogoInternoDTO(produto).maxParcelamento());
+        assertEquals(new BigDecimal("7.50"), new com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.ProdutoVitrineLojaProdutoDTO(produto).precoVenda());
+
+        produto.atualizarDadosImportados(produtoImportado("GIZ NOVO", "20.00", "10"), categoria, LocalDateTime.now());
+        assertEquals(new BigDecimal("22.00"), produto.getPrecoComIpi());
+        assertEquals(new BigDecimal("7.50"), produto.getPrecoVendaEfetivo());
+        assertEquals(new BigDecimal("9.00"), produto.getPrecoCartaoParc());
+        assertTrue(produto.isUsarPrecosPersonalizados());
+
+        new PrecosPersonalizadosRequestDTO(false, null, null, null).aplicar(produto);
+        assertEquals(new BigDecimal("9.00"), produto.getPrecoVendaEfetivo());
+        assertTrue(new ProdutoCatalogoPublicoDTO(produto).emPromocao());
+        assertEquals(null, new ProdutoCatalogoPublicoDTO(produto).precoAVista());
+        assertEquals(new BigDecimal("7.50"), new ProdutoResponseDTO(produto).precoAVista());
+        produto.setEmPromocao(false);
+        assertEquals(new BigDecimal("22.00"), produto.getPrecoVendaEfetivo());
+    }
+
+    @Test
     void devePreservarNomePublicoAoAtualizarDadosDoSantri() {
         Produto produto = new Produto(
                 produtoImportado("GIZ DE GESSO", "5.49", "13.00"),
@@ -67,12 +95,12 @@ class ProdutoTest {
                 "Giz de gesso",
                 true,
                 false,
-                "/uploads/produtos/principal.webp",
-                "/uploads/produtos/hover.webp"
+                "/uploads/produtos/11111111-1111-1111-1111-111111111111.webp",
+                "/uploads/produtos/22222222-2222-2222-2222-222222222222.webp"
         );
 
-        assertEquals("/uploads/produtos/principal.webp", produto.getImagemUrl());
-        assertEquals("/uploads/produtos/hover.webp", produto.getImagemHoverUrl());
+        assertEquals("/uploads/produtos/11111111-1111-1111-1111-111111111111.webp", produto.getImagemUrl());
+        assertEquals("/uploads/produtos/22222222-2222-2222-2222-222222222222.webp", produto.getImagemHoverUrl());
     }
 
     @Test
@@ -83,7 +111,10 @@ class ProdutoTest {
                 LocalDateTime.now()
         );
         List<String> imagens = java.util.stream.IntStream.rangeClosed(1, 8)
-                .mapToObj(indice -> "/uploads/produtos/foto-" + indice + ".webp")
+                .mapToObj(indice -> String.format(
+                        "/uploads/produtos/00000000-0000-0000-0000-%012d.webp",
+                        indice
+                ))
                 .toList();
 
         produto.substituirImagens(imagens);
@@ -93,7 +124,9 @@ class ProdutoTest {
         assertEquals(imagens.get(1), produto.getImagemHoverUrl());
         assertThrows(
                 IllegalStateException.class,
-                () -> produto.adicionarImagem("/uploads/produtos/foto-9.webp")
+                () -> produto.adicionarImagem(
+                        "/uploads/produtos/00000000-0000-0000-0000-000000000009.webp"
+                )
         );
     }
 

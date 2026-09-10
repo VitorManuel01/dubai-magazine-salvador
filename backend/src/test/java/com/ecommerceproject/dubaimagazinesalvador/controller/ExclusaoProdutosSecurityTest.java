@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,7 +24,8 @@ import com.ecommerceproject.dubaimagazinesalvador.services.produto.ExclusaoProdu
 
 @WebMvcTest(ExclusaoProdutosController.class)
 @Import({SecurityConfigurations.class, SecurityFilter.class})
-class ExclusaoProdutosSecurityTest {
+@ActiveProfiles("test")
+class ExclusaoProdutosSecurityTest extends ProtecoesWebTestSupport {
 
     @Autowired
     private MockMvc mockMvc;
@@ -45,7 +47,7 @@ class ExclusaoProdutosSecurityTest {
         mockMvc.perform(delete("/admin/produtos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(delete("/admin/produtos")
                         .with(user("funcionario").roles("FUNCIONARIO"))
                         .contentType(MediaType.APPLICATION_JSON)

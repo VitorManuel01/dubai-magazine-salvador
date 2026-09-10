@@ -1,7 +1,6 @@
 package com.ecommerceproject.dubaimagazinesalvador.controller;
 
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,11 +13,10 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.Categoria;
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.CategoriaCatalogoPublicoDTO;
 import com.ecommerceproject.dubaimagazinesalvador.domain.categoria.CategoriaResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.CategoriaRepository;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.FiltrosPesquisaCatalogo;
 
 @RestController
 public class CategoriaController {
-
-    private static final Set<String> CATEGORIAS_EXCLUSIVAS_ADMIN = Set.of("123", "999");
 
     private final CategoriaRepository categoriaRepository;
 
@@ -33,8 +31,12 @@ public class CategoriaController {
             @RequestParam(required = false) String categoriaPaiCodigo
     ) {
         validarNivel(nivel);
-        return buscarCategorias(true, nivel, categoriaPaiCodigo).stream()
-                .filter(categoria -> !ehCategoriaExclusivaAdmin(categoria.getCodigo()))
+        return buscarCategorias(
+                true,
+                nivel,
+                FiltrosPesquisaCatalogo.normalizarCodigoCategoria(categoriaPaiCodigo)
+        ).stream()
+                .filter(Categoria::podeExibirNoCatalogoPublico)
                 .map(CategoriaCatalogoPublicoDTO::new)
                 .toList();
     }
@@ -47,7 +49,11 @@ public class CategoriaController {
             @RequestParam(required = false) String categoriaPaiCodigo
     ) {
         validarNivel(nivel);
-        return buscarCategorias(somenteVisiveis, nivel, categoriaPaiCodigo).stream()
+        return buscarCategorias(
+                somenteVisiveis,
+                nivel,
+                FiltrosPesquisaCatalogo.normalizarCodigoCategoria(categoriaPaiCodigo)
+        ).stream()
                 .map(CategoriaResponseDTO::new)
                 .toList();
     }
@@ -60,12 +66,6 @@ public class CategoriaController {
             );
         }
 
-    }
-
-    private boolean ehCategoriaExclusivaAdmin(String codigo) {
-        return CATEGORIAS_EXCLUSIVAS_ADMIN.stream()
-                .anyMatch(codigoRaiz -> codigoRaiz.equals(codigo)
-                        || codigo.startsWith(codigoRaiz + "."));
     }
 
     private List<Categoria> buscarCategorias(

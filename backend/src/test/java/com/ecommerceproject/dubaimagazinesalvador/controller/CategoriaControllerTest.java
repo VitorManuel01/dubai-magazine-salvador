@@ -28,6 +28,8 @@ class CategoriaControllerTest {
         controller = new CategoriaController(categoriaRepository);
         categorias = List.of(
                 categoria("001", "PAPELARIA"),
+                categoria("008.01", "MATERIAL INTERNO"),
+                categoria("007", "USO E CONSUMO > COPA"),
                 categoria("123", "AJUSTES DE GRUPOS"),
                 categoria("999", "IMPLANTACAO")
         );
@@ -49,12 +51,12 @@ class CategoriaControllerTest {
         when(categoriaRepository.findByNivelOrderByNomeAsc(1)).thenReturn(categorias);
         var resposta = controller.getAllAdministracao(false, 1, null);
 
-        assertEquals(List.of("001", "123", "999"), resposta.stream()
+        assertEquals(List.of("001", "008.01", "007", "123", "999"), resposta.stream()
                 .map(categoria -> categoria.codigo())
                 .toList());
     }
 
     private Categoria categoria(String codigo, String nome) {
-        return new Categoria(codigo, nome, 1, nome, null, false);
+        return new Categoria(codigo, nome, 1, nome, null, true);
     }
 }

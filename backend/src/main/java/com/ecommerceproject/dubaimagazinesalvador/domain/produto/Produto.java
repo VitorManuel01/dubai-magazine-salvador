@@ -60,6 +60,18 @@ public class Produto {
     @Column(name = "nome_exibido_site", nullable = false, length = 500)
     private String nomeExibidoSite;
 
+    @Column(name = "usar_precos_personalizados", nullable = false)
+    private boolean usarPrecosPersonalizados;
+
+    @Column(name = "preco_a_vista", precision = 12, scale = 2)
+    private BigDecimal precoAVista;
+
+    @Column(name = "preco_cartao_parc", precision = 12, scale = 2)
+    private BigDecimal precoCartaoParc;
+
+    @Column(name = "max_parcelamento")
+    private Integer maxParcelamento;
+
     @Column(length = 20)
     private String ncm;
 
@@ -417,7 +429,7 @@ public class Produto {
         if (url == null || url.isBlank() || url.length() > 1000) {
             throw new IllegalArgumentException("A URL da foto é inválida.");
         }
-        return url.trim();
+        return ImagemProdutoCatalogo.normalizarParaPersistencia(url);
     }
 
     private void reindexarImagens() {
@@ -480,7 +492,13 @@ public class Produto {
 
     @Transient
     public BigDecimal getPrecoVendaEfetivo() {
+        if (usarPrecosPersonalizados) return precoAVista;
         return isPromocaoVigente() ? precoPromocao : getPrecoComIpi();
+    }
+
+    @Transient
+    public boolean isPromocaoExibidaSite() {
+        return !usarPrecosPersonalizados && isPromocaoVigente();
     }
 
     //A função valorOuZero é utilizada para evitar NullPointerException ao lidar com valores nulos de BigDecimal, retornando BigDecimal.ZERO caso o valor seja nulo.

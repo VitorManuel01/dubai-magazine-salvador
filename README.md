@@ -21,9 +21,10 @@ itens disponíveis e direciona o cliente para atendimento ou compra presencial.
 - página pública detalhada do produto com galeria, preços, disponibilidade e descrição editorial;
 - administração da visibilidade, do nome público, das fotos, da descrição e do destaque dos produtos;
 - vitrine interna da loja física com variações, galeria compartilhada e seções descritivas próprias;
-- acesso de funcionários somente para consulta da vitrine interna;
-- cadastro de funcionários exclusivo para administradores;
-- autenticação por código Santri e senha, com JWT e bloqueios contra tentativas repetidas;
+- acesso de funcionários para consulta da vitrine interna e do catálogo reduzido com código Santri;
+- cadastro, listagem reduzida e ativação/desativação de funcionários exclusivos para administradores;
+- autenticação por código Santri e senha, com JWT de até uma hora, revogação e bloqueios de login;
+- limitação de requisições públicas, buscas delimitadas e auditoria de alterações internas;
 - perfis separados para desenvolvimento, pré-produção e produção.
 
 ## Tecnologias
@@ -110,6 +111,11 @@ O arquivo `.env` real é ignorado pelo Git. Nunca coloque credenciais nos arquiv
 `frontend/.env.*`: toda variável `VITE_*` é incorporada ao JavaScript e fica pública no
 navegador.
 
+Substitua os exemplos por valores reais locais. `JWT_SECRET` precisa ter pelo menos 32 bytes
+aleatórios. Selecione exatamente um perfil: não há ambiente padrão. Em produção, configure também
+`DB_APP_*`, `DB_MIGRATION_*`, `AUDIT_HMAC_SECRET` independente e `PRODUCT_IMAGES_DIR` persistente,
+conforme o [guia de operação](docs/OPERACAO_E_DEPLOY.md).
+
 ### 3. Backend
 
 ```powershell
@@ -149,6 +155,7 @@ protegida e os funcionários pela área administrativa.
 | Catálogo e páginas institucionais | Sim | Sim | Sim |
 | Login interno | Sim | Sim | Sim |
 | Consulta da vitrine da loja física | Não | Sim | Sim |
+| Consulta do catálogo com código Santri | Não | Sim | Sim |
 | Dados internos completos de produtos | Não | Não | Sim |
 | Importação ODS | Não | Não | Sim |
 | Gerenciamento de vitrines | Não | Não | Sim |
@@ -161,6 +168,7 @@ Frontend:
 ```powershell
 cd frontend
 npm run lint
+npm run test:security
 npm run build:preproduction
 npm run build:production
 ```
@@ -172,6 +180,11 @@ cd backend
 .\mvnw.cmd test
 .\mvnw.cmd clean package
 ```
+
+Os workflows em `.github/workflows` configuram testes com MySQL descartável, validação das
+migrations desde um banco vazio, lint/build do frontend, auditoria npm, CodeQL e revisão de
+dependências. A existência desses arquivos não confirma sua execução no GitHub: confira os
+resultados do commit antes de publicar.
 
 ## Documentação detalhada
 

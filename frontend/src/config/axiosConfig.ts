@@ -1,5 +1,6 @@
 // axiosConfig.ts
 import axios from 'axios';
+import { pertenceApi } from '../utils/destinoApi';
 
 const enderecoConfigurado = import.meta.env.VITE_API_BASE_URL?.trim();
 const enderecoPadrao = import.meta.env.DEV
@@ -26,11 +27,29 @@ axios.interceptors.request.use(config => {
     // cada requisição evita que outra configuração global reative credenciais.
     config.withCredentials = false;
 
-    const token = localStorage.getItem('token');
-    if (token) {
+    const destino = new URL(axios.getUri(config), window.location.origin);
+    const token = sessionStorage.getItem('token');
+    if (token && pertenceApi(destino, urlApi)) {
         config.headers.Authorization = `Bearer ${token}`;
+    } else {
+        // Uma URL absoluta externa nunca deve receber a sessão do funcionário.
+        config.headers.delete('Authorization');
     }
     return config;
 });
+
+axios.interceptors.response.use(
+    response => response,
+    error => {
+        const tokenAtual = sessionStorage.getItem('token');
+        const autorizacaoEnviada = error?.config?.headers?.get?.('Authorization');
+        if (error?.response?.status === 401 && tokenAtual
+                && autorizacaoEnviada === `Bearer ${tokenAtual}`) {
+            sessionStorage.removeItem('token');
+            window.dispatchEvent(new Event('auth:unauthorized'));
+        }
+        return Promise.reject(error);
+    }
+);
 
 export default axios;

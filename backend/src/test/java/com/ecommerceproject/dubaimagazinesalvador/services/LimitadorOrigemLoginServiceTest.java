@@ -98,6 +98,25 @@ class LimitadorOrigemLoginServiceTest {
         assertTrue(janelaCurta.reservarTentativa("192.0.2.50", dispositivo).limitado());
     }
 
+    @Test
+    void falhaFechadoQuandoOTetoDeIpsRastreadosFoiAtingido() {
+        LimitadorOrigemLoginService capacidadeMinima = new LimitadorOrigemLoginService(
+                20,
+                5,
+                Duration.ofMinutes(20),
+                Duration.ofMinutes(20),
+                Duration.ZERO,
+                Duration.ZERO,
+                1
+        );
+
+        assertFalse(capacidadeMinima.reservarTentativa("192.0.2.60", null).limitado());
+        var excedente = capacidadeMinima.reservarTentativa("192.0.2.61", null);
+
+        assertTrue(excedente.limitado());
+        assertTrue(excedente.tentarNovamenteEm().isAfter(Instant.now()));
+    }
+
     private LimitadorOrigemLoginService novoLimitadorSemAtraso() {
         return new LimitadorOrigemLoginService(
                 3,

@@ -22,6 +22,15 @@ import lombok.Setter;
 @EqualsAndHashCode(of = "codigo")
 public class Categoria {
 
+    public boolean podeExibirNoCatalogoPublico() {
+        if (!exibirNoSite || codigo == null || caminho == null) {
+            return false;
+        }
+        return java.util.stream.Stream.of("008", "123", "999")
+                .noneMatch(raiz -> codigo.equals(raiz) || codigo.startsWith(raiz + "."))
+                && !caminho.toUpperCase(java.util.Locale.ROOT).startsWith("USO E CONSUMO");
+    }
+
     @Id
     @Column(length = 64)
     private String codigo;

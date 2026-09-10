@@ -25,6 +25,7 @@ import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.VitrineLoj
 import com.ecommerceproject.dubaimagazinesalvador.domain.vitrine.loja.VitrineLojaResponseDTO;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.ProdutoRepository;
 import com.ecommerceproject.dubaimagazinesalvador.repositories.VitrineLojaRepository;
+import com.ecommerceproject.dubaimagazinesalvador.services.produto.FiltrosPesquisaCatalogo;
 
 @Service
 public class VitrineLojaService {
@@ -52,9 +53,7 @@ public class VitrineLojaService {
             boolean somenteAtivas
     ) {
         validarPaginacao(pagina, tamanho);
-        String buscaNormalizada = busca == null || busca.isBlank()
-                ? null
-                : busca.trim();
+        String buscaNormalizada = FiltrosPesquisaCatalogo.normalizarBuscaParaLike(busca);
         return vitrineRepository.pesquisar(
                 somenteAtivas,
                 buscaNormalizada,
@@ -69,9 +68,7 @@ public class VitrineLojaService {
             int tamanho
     ) {
         validarPaginacao(pagina, tamanho, 60);
-        String buscaNormalizada = busca == null || busca.isBlank()
-                ? null
-                : busca.trim();
+        String buscaNormalizada = FiltrosPesquisaCatalogo.normalizarBuscaParaLike(busca);
         return produtoRepository.findCatalogoPorCategoria(
                 null,
                 buscaNormalizada,
@@ -217,7 +214,12 @@ public class VitrineLojaService {
             if (imagem == null || imagem.isBlank()) {
                 continue;
             }
-            String url = imagem.trim();
+            String url;
+            try {
+                url = ImagemProdutoCatalogo.normalizarParaPersistencia(imagem);
+            } catch (IllegalArgumentException e) {
+                throw erro(e.getMessage());
+            }
             if (url.length() > 1000) {
                 throw erro("A URL da imagem deve possuir no máximo 1000 caracteres.");
             }
@@ -304,9 +306,9 @@ public class VitrineLojaService {
     }
 
     private void validarPaginacao(int pagina, int tamanho, int tamanhoMaximo) {
-        if (pagina < 0 || tamanho < 1 || tamanho > tamanhoMaximo) {
+        if (pagina < 0 || pagina > 5_000 || tamanho < 1 || tamanho > tamanhoMaximo) {
             throw erro(
-                    "A página deve ser positiva e o tamanho deve estar entre 1 e "
+                    "A página deve estar entre 0 e 5000 e o tamanho deve estar entre 1 e "
                             + tamanhoMaximo + "."
             );
         }

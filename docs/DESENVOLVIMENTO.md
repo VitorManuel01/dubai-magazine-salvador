@@ -7,7 +7,7 @@
 1. instale Java 25;
 2. crie os bancos de desenvolvimento e teste;
 3. copie `.env.example` para `.env` na raiz;
-4. preencha `DB_*`, `TEST_DB_*` e `JWT_SECRET`;
+4. preencha `DB_*`, `TEST_DB_*`, `JWT_SECRET` aleatório e `SPRING_PROFILES_ACTIVE=development`;
 5. execute o Maven Wrapper dentro de `backend`.
 
 Exemplo de bancos separados:
@@ -40,7 +40,7 @@ Se o IP local mudar, ajuste `frontend/.env.development` e a origem permitida do 
 | Comando | Uso |
 |---|---|
 | `.\mvnw.cmd spring-boot:run` | inicia com o perfil selecionado |
-| `.\mvnw.cmd test` | executa a suíte completa |
+| `.\mvnw.cmd test` | executa a suíte normal; migrations possuem execução específica no CI |
 | `.\mvnw.cmd -DskipTests compile` | valida compilação sem testes |
 | `.\mvnw.cmd clean package` | limpa, testa e gera o JAR |
 | `.\mvnw.cmd -Dtest=NomeDoTeste test` | executa teste específico |
@@ -51,6 +51,7 @@ Se o IP local mudar, ajuste `frontend/.env.development` e a origem permitida do 
 |---|---|
 | `npm run dev` | servidor de desenvolvimento |
 | `npm run lint` | ESLint |
+| `npm run test:security` | testes de destino do Bearer e cabeçalhos do proxy |
 | `npm run build` | build no modo padrão |
 | `npm run build:preproduction` | build com `/api` e HTTPS obrigatório |
 | `npm run build:production` | build de produção |
@@ -76,8 +77,30 @@ Portanto, o Hibernate não é o responsável pela evolução do banco normal. O 
 
 Não renomeie nem edite migrations que já tenham sido aplicadas em outro ambiente.
 
-Os testes de integração usam o perfil `test`, banco separado, Flyway desativado e
-`ddl-auto=update`. Isso acelera a suíte, mas não substitui a validação manual das migrations.
+Os testes de integração comuns usam o perfil `test`, banco separado, Flyway desativado e
+`ddl-auto=update`. A validação de migrations é separada: `FlywayMigrationCiIT` usa somente o perfil
+`migration-ci`, executa o Flyway e mantém `ddl-auto=validate`.
+
+O workflow de CI provisiona MySQL 8.4 descartável com dois bancos: um vazio para migrations e
+outro para a suíte comum. O teste de migrations exige `RUN_FLYWAY_MIGRATION_TEST=true` e as
+variáveis `MIGRATION_TEST_DB_URL`, `MIGRATION_TEST_DB_USERNAME`, `MIGRATION_TEST_DB_PASSWORD`,
+`MIGRATION_TEST_JWT_SECRET` e `MIGRATION_TEST_AUDIT_HMAC_SECRET`. Nunca reutilize um banco com dados
+reais para esse teste. Para reproduzir com essas variáveis já configuradas:
+
+```powershell
+cd backend
+$env:RUN_FLYWAY_MIGRATION_TEST='true'
+.\mvnw.cmd '-Dtest=FlywayMigrationCiIT' test
+```
+
+Esse teste cobre a criação desde vazio; a atualização de uma cópia do esquema anterior continua
+sendo necessária quando a migration transforma dados existentes. O Flyway está configurado para
+validar nomes/checksums, sem `clean` e sem baseline automático.
+
+Na validação local desta revisão, as 26 migrations foram aplicadas em uma instância isolada de
+MySQL 8.0.46, usando banco vazio. Os dois testes de schema e persistência da auditoria com HMAC
+passaram sem acessar o banco da aplicação. Isso não confirma a execução do workflow no GitHub
+ou a matriz MySQL 8.4 configurada nele.
 
 ## Organização de uma mudança
 
@@ -135,7 +158,9 @@ A suíte do backend cobre:
 - login e validação de credenciais;
 - autorização do catálogo, funcionários e vitrine interna;
 - geração e validação JWT;
+- revogação de sessão e ativação/desativação de funcionário;
 - bloqueios de conta, IP e dispositivo;
+- limites públicos e normalização/escape de filtros de busca;
 - repositório de administrador;
 - regras de produtos e imagens públicas;
 - armazenamento e validação de imagens;
@@ -144,9 +169,23 @@ A suíte do backend cobre:
 - vitrines da home e da loja física;
 - segurança do upload de imagens da vitrine.
 
-O frontend possui lint e verificação TypeScript no build, mas ainda não possui uma suíte própria de
-testes de componentes. Para mudanças visuais, combine build, inspeção responsiva e teste manual do
-fluxo autenticado.
+O frontend possui lint, verificação TypeScript no build e sete testes de segurança executados por
+`npm run test:security`. Eles verificam origem/prefixo do destino de Bearer e tratamento de
+cabeçalhos encaminhados no preview. Ainda não há suíte de componentes React ou navegação completa;
+para mudanças visuais, combine build, inspeção responsiva e teste manual do fluxo autenticado.
+
+## Automação no GitHub
+
+- `ci.yml`: Java 25, MySQL 8.4, migrations em banco vazio, suíte Maven, Node 24, instalação
+  reproduzível, auditoria npm com falha a partir de severidade alta, lint e build de produção;
+- `codeql.yml`: análise de Java e JavaScript/TypeScript em pushes, pull requests e agenda semanal;
+- `dependency-review.yml`: rejeita alterações de dependências com vulnerabilidade alta ou crítica
+  em pull requests;
+- `dependabot.yml`: propõe atualizações semanais de Maven, npm e GitHub Actions.
+
+Os arquivos configuram as verificações; confira a execução e a disponibilidade desses recursos
+no repositório GitHub e configure as verificações exigidas antes de permitir merge. CodeQL e
+auditorias de dependências não substituem os testes de autorização nem a revisão do código.
 
 ## Checklist antes de abrir PR ou fazer merge
 
@@ -157,6 +196,7 @@ fluxo autenticado.
 - [ ] permissões do backend foram revisadas;
 - [ ] uploads continuam validados no backend;
 - [ ] `npm run lint` passou;
+- [ ] `npm run test:security` passou;
 - [ ] `npm run build:production` passou;
 - [ ] `.\mvnw.cmd test` passou;
 - [ ] mobile e desktop foram verificados;

@@ -1,5 +1,25 @@
 # Referência da API
 
+## Preços na edição de apresentação
+
+`PUT /produto/{codigoSantri}/apresentacao` (multipart, somente `ROLE_ADMIN`) também aceita:
+
+| Campo | Tipo/regra |
+|---|---|
+| `usarPrecosPersonalizados` | booleano; ausente preserva a configuração anterior |
+| `precoAVista` | decimal positivo, até 10 dígitos inteiros e 2 decimais |
+| `precoCartaoParc` | preço total no cartão, mesmas regras |
+| `maxParcelamento` | inteiro de 1 a 36 |
+
+Ao ativar, envie todos os valores. Para desativar sem apagar os valores salvos, envie somente
+`usarPrecosPersonalizados=false` junto aos campos habituais de apresentação. Use ponto como
+separador decimal na API. Os DTOs de produtos retornam os quatro campos; em respostas não
+administrativas, os valores manuais são `null` enquanto o modo estiver desligado.
+
+O seletor e os campos ficam em **Editar**, no card administrativo. Após salvar, o frontend
+invalida os dados de catálogo, detalhes, home e vitrines. A migration V27 é aplicada na próxima
+inicialização com Flyway, sem necessidade de apagar o banco.
+
 ## Endereços
 
 | Ambiente | Base usada pelo navegador |
@@ -73,6 +93,15 @@ Possíveis respostas:
 - `401`: resposta uniforme para código ou senha inválidos;
 - `429`: IP ou dispositivo limitado; inclui `Retry-After` em segundos.
 
+### `POST /auth/logout`
+
+Administrador ou funcionário autenticado. Invalida todos os JWTs emitidos para a conta e retorna
+`204`. O frontend também descarta o token local mesmo se a API estiver temporariamente
+indisponível.
+
+Se a chamada de logout falhar por indisponibilidade de rede, apenas a saída local é garantida;
+os tokens ainda válidos no servidor expiram normalmente ou podem ser revogados por outra ação.
+
 ### `POST /auth/registerADM`
 
 Somente administrador. Cria outro administrador.
@@ -98,7 +127,8 @@ Retorna `201` sem corpo. Código Santri repetido retorna `409`.
 
 ### `GET /funcionario`
 
-Somente administrador. Lista funcionários sem retornar hashes de senha.
+Somente administrador. Lista apenas `id`, código Santri, nome, função e estado ativo. CPF, senha,
+endereço, nascimento e telefone não fazem parte da resposta.
 
 ### `POST /funcionario`
 
@@ -121,9 +151,19 @@ Somente administrador. Cria funcionário.
 Regras principais:
 
 - código com até 50 caracteres, formado por letras, números, ponto, `_` ou `-`;
-- senha entre 12 e 128 caracteres com maiúscula, minúscula, número e símbolo;
+- senha entre 12 e 72 caracteres, limitada também a 72 bytes UTF-8, com maiúscula, minúscula,
+  número e símbolo;
 - CPF com 11 dígitos;
 - telefone opcional com 10 ou 11 dígitos.
+
+### `PUT /funcionario/{id}/status`
+
+Somente administrador. Recebe `{ "ativo": false }` ou `{ "ativo": true }`. Ao desativar ou
+reativar, a versão de sessão é alterada e todos os tokens anteriores do funcionário deixam de ser
+aceitos imediatamente.
+
+O retorno usa o mesmo DTO reduzido da listagem. Repetir o estado que já está salvo não incrementa
+a versão novamente; reativar o funcionário exige um novo login.
 
 ## Produtos
 
@@ -146,6 +186,8 @@ Parâmetros:
 A categoria, a busca e a faixa de preço são aplicadas no banco **antes** da paginação. Por isso,
 `totalElements`, `totalPages` e o conteúdo de cada página representam somente o conjunto filtrado.
 Preços negativos e faixas em que `precoMinimo` é maior que `precoMaximo` retornam `400`.
+A busca pública exige de 2 a 100 caracteres. Curingas SQL são tratados como texto literal. A página
+deve ficar entre 0 e 5.000, e valores de preço são limitados ao formato da coluna monetária.
 
 Item público:
 
@@ -180,6 +222,8 @@ fotos; as posições 1 e 2 alimentam, respectivamente, a imagem normal e o hover
 Público. Retorna os dados comerciais seguros, a galeria completa e a descrição editorial de um
 produto visível. Produtos ocultos, indisponíveis ou pertencentes a categorias internas retornam
 `404`.
+
+O identificador deve ter formato UUID; um valor inválido também recebe `404`.
 
 ### `GET /interno/produtos`
 
@@ -530,10 +574,11 @@ Somente administrador. Retorna `204`.
 ### `GET /catalogo/imagens/{nomeArquivo}`
 
 Público. Serve somente UUIDs gerados pela aplicação com extensão JPG, PNG ou WEBP. A resposta
-possui cache público de 30 dias.
+possui cache público imutável de 30 dias; uma substituição gera outro nome/URL.
 
-`GET /uploads/produtos/**` permanece permitido por compatibilidade com referências antigas, mas
-novos contratos devem usar `/catalogo/imagens/...`.
+O caminho físico `/uploads/produtos/**` não é uma rota pública. Referências antigas são convertidas
+para `/catalogo/imagens/...` nos DTOs, e a busca do arquivo usa diretamente o UUID, sem varrer o
+diretório em cada requisição.
 
 ## Actuator
 
@@ -545,12 +590,14 @@ as regras de autorização.
 | Status | Significado típico |
 |---:|---|
 | `400` | parâmetros, DTO ou arquivo inválido |
-| `401` | credenciais ou JWT inválidos |
+| `401` | credenciais/JWT inválidos ou autenticação ausente em rota protegida |
 | `403` | usuário autenticado sem a função exigida |
 | `404` | entidade ou imagem não encontrada |
 | `409` | código duplicado, produto em outra vitrine ou importação concorrente |
 | `413` | imagem ou requisição acima do limite |
 | `426` | HTTP usado em ambiente que exige HTTPS |
-| `429` | limite de tentativas de login atingido |
+| `429` | limite de login, consultas ou imagens atingido |
 
 Em pré-produção e produção, mensagens internas e stack traces não são retornados ao cliente.
+Os limitadores do backend enviam `Retry-After` em segundos; bloqueios feitos pelo proxy podem ter
+um formato de resposta diferente. Aguarde a janela indicada em vez de repetir em loop.

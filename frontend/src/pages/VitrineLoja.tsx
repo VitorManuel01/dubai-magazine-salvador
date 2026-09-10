@@ -1,3 +1,4 @@
+import { PrecoPersonalizado } from '../components/produtos/PrecoPersonalizado';
 import {
   type FormEvent,
   type MouseEvent,
@@ -230,8 +231,10 @@ function VitrineLoja() {
               )}
 
               <div className="loja-product-price">
+                {opcaoSelecionada.produto.usarPrecosPersonalizados ? <PrecoPersonalizado produto={opcaoSelecionada.produto} /> : <>
                 <small>Preço de venda</small>
                 <strong>{formatarMoeda(opcaoSelecionada.produto.precoVenda)}</strong>
+                </>}
               </div>
 
               <div className="loja-product-stock">

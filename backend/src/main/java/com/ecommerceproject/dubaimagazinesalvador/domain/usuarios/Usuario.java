@@ -53,6 +53,10 @@ public abstract class Usuario implements UserDetails {
     private int tentativasLoginFalhas;
     @Column(name = "bloqueado_ate")
     private Instant bloqueadoAte;
+    @Column(nullable = false)
+    private boolean ativo = true;
+    @Column(name = "versao_token", nullable = false)
+    private int versaoToken;
     
     public String getCodigoSantri() {
         return codigoSantri;
@@ -114,7 +118,12 @@ public abstract class Usuario implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return ativo;
+    }
+
+    public void invalidarTokensEmitidos() {
+        // Não reutiliza uma versão antiga mesmo em caso de esgotamento.
+        versaoToken = Math.incrementExact(versaoToken);
     }
     
 }

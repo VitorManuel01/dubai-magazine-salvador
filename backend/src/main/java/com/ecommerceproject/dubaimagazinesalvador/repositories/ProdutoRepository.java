@@ -32,6 +32,9 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               AND categoria.exibirNoSite = true
               AND categoria.codigo <> '008'
               AND categoria.codigo NOT LIKE '008.%'
+              AND categoria.codigo NOT IN ('123', '999')
+              AND categoria.codigo NOT LIKE '123.%'
+              AND categoria.codigo NOT LIKE '999.%'
               AND UPPER(categoria.caminho) NOT LIKE 'USO E CONSUMO%'
             """)
     Optional<Produto> findDetalhePublicoByIdPublico(@Param("idPublico") String idPublico);
@@ -54,25 +57,28 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
                         categoria.exibirNoSite = true
                         AND categoria.codigo <> '008'
                         AND categoria.codigo NOT LIKE '008.%'
+                        AND categoria.codigo NOT IN ('123', '999')
+                        AND categoria.codigo NOT LIKE '123.%'
+                        AND categoria.codigo NOT LIKE '999.%'
                         AND UPPER(categoria.caminho) NOT LIKE 'USO E CONSUMO%'
                     )
               )
               AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
               AND (
                     :precoMinimo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) >= :precoMinimo
+                    ) END) >= :precoMinimo
               )
               AND (
                     :precoMaximo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) <= :precoMaximo
+                    ) END) <= :precoMaximo
               )
               AND (
                     :categoriaCodigo IS NULL
@@ -81,16 +87,16 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               )
               AND (
                     :busca IS NULL
-                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
                     OR (
                         :incluirOcultos = true
                         AND (
-                            LOWER(produto.nome) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.codigoBarras) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.fabricante) LIKE CONCAT('%', LOWER(:busca), '%')
+                            LOWER(produto.nome) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.codigoBarras) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.fabricante) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
                         )
                     )
               )
@@ -123,25 +129,28 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
                         categoria.exibirNoSite = true
                         AND categoria.codigo <> '008'
                         AND categoria.codigo NOT LIKE '008.%'
+                        AND categoria.codigo NOT IN ('123', '999')
+                        AND categoria.codigo NOT LIKE '123.%'
+                        AND categoria.codigo NOT LIKE '999.%'
                         AND UPPER(categoria.caminho) NOT LIKE 'USO E CONSUMO%'
                     )
               )
               AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
               AND (
                     :precoMinimo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) >= :precoMinimo
+                    ) END) >= :precoMinimo
               )
               AND (
                     :precoMaximo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) <= :precoMaximo
+                    ) END) <= :precoMaximo
               )
               AND (
                     :categoriaCodigo IS NULL
@@ -150,16 +159,16 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               )
               AND (
                     :busca IS NULL
-                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
                     OR (
                         :incluirOcultos = true
                         AND (
-                            LOWER(produto.nome) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.codigoBarras) LIKE CONCAT('%', LOWER(:busca), '%')
-                            OR LOWER(produto.fabricante) LIKE CONCAT('%', LOWER(:busca), '%')
+                            LOWER(produto.nome) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.codigoOriginal) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.codigoBarras) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                            OR LOWER(produto.fabricante) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
                         )
                     )
               )
@@ -203,19 +212,19 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
               AND (
                     :precoMinimo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) >= :precoMinimo
+                    ) END) >= :precoMinimo
               )
               AND (
                     :precoMaximo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) <= :precoMaximo
+                    ) END) <= :precoMaximo
               )
               AND (
                     :categoriaCodigo IS NULL
@@ -224,9 +233,9 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               )
               AND (
                     :busca IS NULL
-                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
               )
             ORDER BY produto.nomeExibidoSite ASC, produto.codigoSantri ASC
             """,
@@ -239,19 +248,19 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               AND (:somenteDestaques = false OR produto.destaqueNaHome = true)
               AND (
                     :precoMinimo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) >= :precoMinimo
+                    ) END) >= :precoMinimo
               )
               AND (
                     :precoMaximo IS NULL
-                    OR ROUND(
+                    OR (CASE WHEN produto.usarPrecosPersonalizados = true THEN produto.precoAVista ELSE ROUND(
                         produto.precoSemIpi
                         * (1 + COALESCE(produto.percentualIpiEntrada, 0) / 100),
                         2
-                    ) <= :precoMaximo
+                    ) END) <= :precoMaximo
               )
               AND (
                     :categoriaCodigo IS NULL
@@ -260,9 +269,9 @@ public interface ProdutoRepository extends JpaRepository<Produto, String> {
               )
               AND (
                     :busca IS NULL
-                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%')
-                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%')
+                    OR LOWER(produto.nomeExibidoSite) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.marca) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
+                    OR LOWER(produto.codigoSantri) LIKE CONCAT('%', LOWER(:busca), '%') ESCAPE '!'
               )
             """
     )
