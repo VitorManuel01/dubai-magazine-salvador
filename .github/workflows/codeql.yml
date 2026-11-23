@@ -28,17 +28,17 @@ jobs:
 
     steps:
       - name: Baixar o código
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Inicializar CodeQL
-        uses: github/codeql-action/init@fddeee1a7ece751b577e409a89057319e3172939 # v4
+        uses: github/codeql-action/init@38112626f97ac1fd7acf3df7ebca51f4677c1b38 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           queries: security-extended
 
       - name: Analisar
-        uses: github/codeql-action/analyze@fddeee1a7ece751b577e409a89057319e3172939 # v4
+        uses: github/codeql-action/analyze@38112626f97ac1fd7acf3df7ebca51f4677c1b38 # v4
 
